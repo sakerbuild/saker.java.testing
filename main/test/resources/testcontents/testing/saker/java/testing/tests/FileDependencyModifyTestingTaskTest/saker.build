@@ -1,0 +1,27 @@
+build {
+	$TestPass = saker.java.compile(
+		SourceDirectories: src,
+		ClassPath: [ 
+			*.jar, 
+		],
+		Identifier: tests,
+	)
+	saker.java.test(
+		TestRunnerClassPath: [ 
+			*.jar, 
+		],
+		TestInvokerParameters: {
+			TestRunnerClass : org.junit.runner.JUnitCore,
+		},
+		TestClassPath: $TestPass[ClassDirectory],
+		TestClasses: [
+			test.*Test
+		],
+		IgnoreFileChanges: [
+			ignored,
+		],
+		Verbose: true,
+		AbortOnFail: false,
+		MaxJVMCount: 1,
+	)
+}

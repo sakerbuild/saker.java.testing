@@ -1,0 +1,33 @@
+build {
+	$TestRunnerPass = saker.java.compile(
+		SourceDirectories: testrunner,
+		Identifier: testrunner,
+	)
+	$Pass = saker.java.compile(
+		SourceDirectories: src,
+		Identifier: userclasses,
+	)
+	$TestsPass = saker.java.compile(
+		SourceDirectories: tests,
+		Identifier: testclasses,
+		ClassPath: [
+			$Pass
+		],
+	)
+	saker.java.test(
+		TestRunnerClassPath: [ 
+			$TestRunnerPass,
+		],
+		TestInvokerParameters: {
+			TestRunnerClass: testrunner.TestRunnerMain,
+		},
+		ClassPath: [ 
+			$Pass,
+		],
+		TestClassPath: [ 
+			$TestsPass[ClassDirectory],
+		],
+		MaxJVMCount: 1,
+		AbortOnFail: false,
+	)
+}

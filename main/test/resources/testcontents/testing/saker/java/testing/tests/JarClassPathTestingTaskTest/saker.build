@@ -1,0 +1,36 @@
+build {
+	$Pass = saker.java.compile(
+		SourceDirectories: src,
+		Identifier: userclasses,
+	)
+	$TestPass = saker.java.compile(
+		SourceDirectories: tests,
+		ClassPath: [ 
+			junit-4.12.jar, 
+			hamcrest-core-1.3.jar,
+			$Pass, 
+		],
+		Identifier: tests,
+	)
+	$jar = test.jar.create(
+		Directory: $Pass[ClassDirectory],
+		Resources: **,
+	)
+	saker.java.test(
+		TestRunnerClassPath: [ 
+			junit-4.12.jar, 
+			hamcrest-core-1.3.jar,
+		],
+		TestInvokerParameters: {
+			TestRunnerClass : org.junit.runner.JUnitCore,
+		},
+		TestClassPath: $TestPass[ClassDirectory],
+		ClassPath: $jar,
+		DependencyClassPath: $Pass[ClassDirectory],
+		TestClasses: [
+			test.*Test
+		],
+		AbortOnFail: false,
+		MaxJVMCount: 1,
+	)
+}

@@ -1,0 +1,4 @@
+saker.java.testing-api
+	classpath: [this]
+saker.java.compiler-api
+	classpath: [0)

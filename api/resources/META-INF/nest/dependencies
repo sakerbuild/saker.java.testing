@@ -1,0 +1,3 @@
+saker.java.testing-impl
+	classpath: [this]
+		compile-transitive: false

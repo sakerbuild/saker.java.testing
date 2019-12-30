@@ -1,0 +1,422 @@
+global(VERSION_saker.java.testing) = "0.8.0"
+
+global(TOOLS_OPTIONS) = [
+	{
+		Identifier: jdk8,
+		SourceVersion: RELEASE_8,
+		TargetVersion: RELEASE_8,
+		SDKs: {
+			Java: saker.java.sdk(8),
+		},
+	},
+	{
+		Identifier: jdk9,
+		SDKs: {
+			Java: saker.java.sdk(9),
+		},
+	},
+]
+static(TARGET_JDKS) = [
+	{
+		Id: jdk8,
+		Major: 8,
+	},
+	{
+		Id: jdk9,
+		Major: 9,
+	},
+]
+global(saker.java.testing_DEPENDENCIES) = [
+	saker.java.compiler,
+]
+
+static(VERSION_saker.build) = nest.dependency.resolve(
+	saker.build,
+	Filters: nest.dependency.filter.kind([]),
+)[Bundles][0][BundleIdentifier][VersionNumber]
+static(VERSION_saker.nest) = nest.dependency.resolve(
+	saker.nest,
+	Filters: nest.dependency.filter.kind([]),
+)[Bundles][0][BundleIdentifier][VersionNumber]
+
+compile(
+	in jdk = jdk8,
+	in testapi = include(_testapicompile),
+	out testapi,
+	out jdk,
+	
+	out mainjavac,
+	out agentjavac,
+	out bootstrapagentjavac,
+){
+	$bootstrapagentjavac = saker.java.compile(
+		SourceDirectories: [
+			src-bootstrapagent-common/,
+			"bootstrapagent-{ $jdk }/src/main/",
+		],
+		Identifier: "saker.java.testing-bootstrapagent-{ $jdk }",
+		CompilerOptions: global(TOOLS_OPTIONS),
+	)
+	###
+		add opens to the boostrapagent if necessary
+		{
+			Identifier: bootstraptestagent-jdk9,
+			Parameters: ["--add-opens", "java.base/java.io=saker.java.testing.agent"],
+		},
+	###
+	$mainjavac = saker.java.compile(
+		SourceDirectories: [
+			main/src/main/,
+			api/src/main/,
+			impl/src/main/,
+		],
+		ClassPath: [
+			$bootstrapagentjavac,
+			$testapi[javac],
+			saker.java.classpath.bundle(nest.dependency.resolve(
+				Bundles: global(saker.java.testing_DEPENDENCIES),
+				Filters: nest.dependency.filter.compile(CompileTransitive: false)
+			)),
+			saker.java.classpath.bundle([
+				"saker.nest-api-v{ static(VERSION_saker.nest) }"
+			]),
+		],
+		Identifier: "saker.java.testing-{ $jdk }",
+		CompilerOptions: global(TOOLS_OPTIONS),
+	)
+
+	$agentjavac = saker.java.compile(
+		SourceDirectories: [
+			src-agent-common/,
+			"agent-{ $jdk }/src/main/",
+		],
+		ClassPath: [
+			$bootstrapagentjavac,
+			saker.java.classpath.bundle([
+				"saker.build-api-v{ static(VERSION_saker.build) }",
+			]),
+		],
+		Identifier: "saker.java.testing-agent-{ $jdk }",
+		CompilerOptions: global(TOOLS_OPTIONS),
+	)
+}
+export(
+	in compile = include(compile),
+	in jdk = $compile[jdk],
+	out compile,
+	
+	out mainjar,
+	out apijar,
+	out impljar,
+	out sourcejar,
+	
+	out agentjar,
+	out bootstrapagentjar,
+	out agentssourcejar,
+	
+	out bundlepaths = [
+		$mainjar[Path],
+		$apijar[Path],
+		$impljar[Path],
+		$sourcejar[Path],
+		
+		$agentjar[Path],
+		$bootstrapagentjar[Path],
+		$agentssourcejar[Path],
+	]
+){
+	if $jdk == jdk8 {
+		$mainjar = saker.jar.create(
+			Output: "saker.java.testing.{ $jdk }/saker.java.testing.jar",
+			Resources: [
+				{
+					Directory: main/resources/,
+					Resources: **,
+				},
+				{
+					Directory: $compile[mainjavac][ClassDirectory],
+					Resources: saker/java/testing/main/**,
+				},
+			],
+			Manifest: {
+				MainAttributes: {
+					Nest-Bundle-Format-Version: 1,
+					Nest-Bundle-Identifier: "saker.java.testing-v{ global(VERSION_saker.java.testing) }",
+					Nest-Bundle-Source: "saker.java.testing-sources-v{ global(VERSION_saker.java.testing) }",
+				},
+			},
+		)
+		$apijar = saker.jar.create(
+			Output: "saker.java.testing.{ $jdk }/saker.java.testing-api.jar",
+			Resources: [
+				{
+					Directory: "api/resources/",
+					Resources: **,
+				},
+				{
+					Directory: $compile[mainjavac][ClassDirectory],
+					Resources: saker/java/testing/api/**,
+				},
+			],
+			Manifest: {
+				MainAttributes: {
+					Nest-Bundle-Format-Version: 1,
+					Nest-Bundle-Identifier: "saker.java.testing-api-v{ global(VERSION_saker.java.testing) }",
+					Nest-Bundle-Source: "saker.java.testing-sources-v{ global(VERSION_saker.java.testing) }",
+				},
+			},
+		)
+		$impljar = saker.jar.create(
+			Output: "saker.java.testing.{ $jdk }/saker.java.testing-impl.jar",
+			Resources: [
+				{
+					Directory: "impl/resources/",
+					Resources: **,
+				},
+				{
+					Directory: $compile[mainjavac][ClassDirectory],
+					Resources: saker/java/testing/impl/**,
+				},
+			] + ($compile[testapi][enabled] ? [{
+				Directory: $compile[testapi][javac][ClassDirectory],
+				Resources: **/*.class,
+			}] : []),,
+			Manifest: {
+				MainAttributes: {
+					Nest-Bundle-Format-Version: 1,
+					Nest-Bundle-Identifier: "saker.java.testing-impl-v{ global(VERSION_saker.java.testing) }",
+					Nest-Bundle-Source: "saker.java.testing-sources-v{ global(VERSION_saker.java.testing) }",
+				},
+			},
+		)
+		$sourcejar = saker.jar.create(
+			Output: "saker.java.testing.{ $jdk }/saker.java.testing-sources.jar",
+			Resources: [
+				{
+					Directory: [
+						main/src/main/,
+						impl/src/main/,
+						api/src/main/,
+					],
+					Resources: **/*.java,
+				}
+			],
+			Manifest: {
+				MainAttributes: {
+					Nest-Bundle-Format-Version: 1,
+					Nest-Bundle-Identifier: "saker.java.testing-sources-v{ global(VERSION_saker.java.testing) }",
+				},
+			},
+		)
+	} else {
+		$apijar = null
+		$mainjar = null
+		$impljar = null
+		$sourcejar = null;
+	}
+	$agentjar = saker.jar.create(
+		Output: "saker.java.testing.{ $jdk }/saker.java.testing-agent-{ $jdk }.jar",
+		Resources: [
+			{
+				Directory: "agent-{ $jdk }/resources/",
+				Resources: **,
+			},
+			{
+				Directory: $compile[agentjavac][ClassDirectory],
+				Resources: **,
+			},
+		],
+		Manifest: {
+			MainAttributes: {
+				Nest-Bundle-Format-Version: 1,
+				Nest-Bundle-Identifier: "saker.java.testing-agent-{ $jdk }-v{ global(VERSION_saker.java.testing) }",
+				Nest-Bundle-Source: "saker.java.testing-agent_sources-{ $jdk }-v{ global(VERSION_saker.java.testing) }",
+			},
+		},
+	)
+	$bootstrapagentjar = saker.jar.create(
+		Output: "saker.java.testing.{ $jdk }/saker.java.testing-bootstrapagent-{ $jdk }.jar",
+		Resources: [
+			{
+				Directory: "bootstrapagent-{ $jdk }/resources/",
+				Resources: **,
+			},
+			{
+				Directory: $compile[bootstrapagentjavac][ClassDirectory],
+				Resources: **,
+			},
+		],
+		Manifest: {
+			MainAttributes: {
+				Nest-Bundle-Format-Version: 1,
+				Nest-Bundle-Identifier: "saker.java.testing-bootstrapagent-{ $jdk }-v{ global(VERSION_saker.java.testing) }",
+				Nest-Bundle-Source: "saker.java.testing-agent_sources-{ $jdk }-v{ global(VERSION_saker.java.testing) }",
+			},
+		},
+	)
+	$agentssourcejar = saker.jar.create(
+		Output: "saker.java.testing.{ $jdk }/saker.java.testing-agent_sources.jar",
+		Resources: [
+			{
+				Directory: [
+					src-bootstrapagent-common/,
+					"bootstrapagent-{ $jdk }/src/main/",
+					src-agent-common/,
+					"agent-{ $jdk }/src/main/",
+				],
+				Resources: **/*.java,
+			}
+		],
+		Manifest: {
+			MainAttributes: {
+				Nest-Bundle-Format-Version: 1,
+				Nest-Bundle-Identifier: "saker.java.testing-agent_sources-{ $jdk }-v{ global(VERSION_saker.java.testing) }",
+			},
+		},
+	)
+}
+compile9(){
+	include(compile, jdk: jdk9)
+}
+export9(){
+	include(export, jdk: jdk9)
+}
+exportall(
+	out bundlepaths,
+){
+	$compilebyjdkid = foreach $jdk in static(TARGET_JDKS) 
+		with $export {
+		$export = include(export, compile: include(compile, jdk: $jdk[Id]))
+	}: {
+		$jdk[Id]: $export
+	}
+	$bundlepaths = [ 
+		$compilebyjdkid[jdk8][mainjar][Path],
+		$compilebyjdkid[jdk8][apijar][Path],
+		$compilebyjdkid[jdk8][impljar][Path],
+		$compilebyjdkid[jdk8][sourcejar][Path],
+	] + foreach $jdkid, $export in $compilebyjdkid: [ 
+		$export[agentjar][Path], 
+		$export[bootstrapagentjar][Path],
+		$export[agentssourcejar][Path], 
+	]
+}
+install(
+	out exportall = include(exportall)
+){
+	nest.local.install($exportall[bundlepaths])
+}
+upload(){
+	$export = include(exportall, Path: saker.build)
+	include(Path: secret/secrets.build)
+	nest.server.upload(
+		Bundles: $export[bundlepaths],
+		APIKey: global(saker.java.testing.UPLOAD_API_KEY),
+		APISecret: global(saker.java.testing.UPLOAD_API_SECRET),
+		Overwrite: true,
+	)
+}
+test(){
+	$testapi = include(_testapicompile, enabled: true)
+	$export = include(export, compile: include(compile, testapi: $testapi))
+	
+	$testutiljavac = saker.java.compile(
+		SourceDirectories: [
+			main/src/testutil/
+		],
+		ClassPath: [
+			$testapi[javac],
+			saker.java.classpath.bundle([
+				"saker.build-test-runner-v{ static(VERSION_saker.build) }",
+				"saker.build-test-utils-v{ static(VERSION_saker.build) }",
+				"saker.nest-test-utils-v{ static(VERSION_saker.nest )}"
+			]),
+		],
+		Identifier: saker.java.testing-testutil,
+		CompilerOptions: global(TOOLS_OPTIONS),
+	)
+	$testcompile = saker.java.compile(
+		SourceDirectories: [
+			main/src/test/
+		],
+		ClassPath: [
+			$testutiljavac,
+		],
+		Identifier: saker.java.testing-tests,
+		CompilerOptions: global(TOOLS_OPTIONS),
+	)
+	$resolveddependencies = nest.dependency.resolve(
+		Bundles: global(saker.java.testing_DEPENDENCIES) + [nest.repository.support, saker.standard, saker.compiler.utils, saker.sdk.support],
+		Filters: nest.dependency.filter.kind(classpath)
+	)
+	
+	$test = saker.java.test(
+		TestRunnerClassPath: [
+			saker.java.classpath.bundle("saker.build-test-runner-v{ static(VERSION_saker.build) }"),
+		],
+		ClassPath: [
+			$testapi[javac], 
+		],
+		DependencyClassPath: [
+			$export[compile][mainjavac],
+			$export[compile][agentjavac],
+			$export[compile][bootstrapagentjavac],
+		],
+		TestInvokerClass: testing.saker.SakerJavaTestingInvoker,
+		TestClassPath:	[
+			$testcompile[ClassDirectory],
+			$testutiljavac[ClassDirectory],
+			saker.java.classpath.bundle([
+				"saker.build-test-utils-v{ static(VERSION_saker.build) }",
+				"saker.nest-test-utils-v{ static(VERSION_saker.nest )}"
+			]),
+		],
+		TestClasses: [
+			**.*Test
+		],
+		NonDeterministicTests: [
+			**,
+		],
+		TestClassParameters: {
+			**: {
+				RepositoryJarPath: nest.bundle.localize("saker.nest-test-v{ static(VERSION_saker.build) }")[BundleLocalPaths][0],
+				RepositoryParameterBundles: "{ 
+						foreach $path in $export[bundlepaths]: "{ std.file.mirror($path) };"
+					};{
+						foreach $path in nest.bundle.localize($resolveddependencies)[BundleLocalPaths]: ";{ $path }"
+					}",
+			}
+		},
+		TestInvokerParameters: {
+			SakerJarPath: nest.bundle.localize("saker.nest-test-saker.build-v{ static(VERSION_saker.build) }")[BundleLocalPaths][0],
+			TimeoutMillis: 120000,
+			TestsBaseBuildDirectory: std.file.mirror.path(std.file.place(test/build)),
+		},
+		IgnoreFileChanges: [
+			std.file.place(test/build),
+		],
+		WorkingDirectory: main,
+		MaxJVMCount: 1,
+		FailFast: true,
+		AbortOnFail: true,
+		Verbose: true,
+	)
+}
+
+_testapicompile(
+	in enabled = false,
+	out enabled,
+	out javac,
+){
+	$javac = saker.java.compile(
+		SourceDirectories: [
+			testapi/api/common, 
+			"testapi/api/{ $enabled ? enabled : disabled }",
+		],
+		ClassPath: [
+			saker.java.classpath.bundle("saker.nest-test-saker.build-v{ static(VERSION_saker.build) }"),
+		],
+		Identifier: "saker.java.testing-testapi-{ $enabled ? enabled : disabled }",
+		CompilerOptions: global(TOOLS_OPTIONS),
+	)
+}

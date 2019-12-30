@@ -1,0 +1,91 @@
+package saker.java.testing.agent;
+
+import java.lang.instrument.ClassFileTransformer;
+import java.nio.file.spi.FileSystemProvider;
+import java.security.ProtectionDomain;
+import java.util.HashSet;
+import java.util.Set;
+
+import saker.build.thirdparty.org.objectweb.asm.ClassReader;
+import saker.build.thirdparty.org.objectweb.asm.ClassVisitor;
+import saker.build.thirdparty.org.objectweb.asm.ClassWriter;
+import saker.build.thirdparty.org.objectweb.asm.Opcodes;
+import saker.build.thirdparty.org.objectweb.asm.Type;
+import saker.java.testing.bootstrapagent.NioFileSystemProviderSakerProxy;
+
+class UserClassFileTransformer implements ClassFileTransformer {
+	private static final String FILESYSTEMPROVIDER_INTERNAL_NAME = Type.getInternalName(FileSystemProvider.class);
+	private static final String FILESYSTEMPROVIDER_DESCRIPTOR = "L" + FILESYSTEMPROVIDER_INTERNAL_NAME + ";";
+	private static final String FILESYSTEMPROVIDER_PROXY_INTERNAL_NAME = Type
+			.getInternalName(NioFileSystemProviderSakerProxy.class);
+
+	private static final String IOFILESYSTEM_INTERNAL_NAME = TestingInstrumentationAgent.JAVA_IO_FILESYSTEM_PROXY_ARGUMENT_INTERNAL_NAME;
+	private static final String IOFILESYSTEM_DESCRIPTOR = "L" + IOFILESYSTEM_INTERNAL_NAME + ";";
+	private static final String IOFILESYSTEM_PROXY_INTERNAL_NAME = TestingInstrumentationAgent.JAVA_IO_FILESYSTEM_PROXY_INTERNAL_NAME;
+
+	private static final Set<ClassLoader> systemClassLoaders = new HashSet<>();
+	{
+		ClassLoader cl = ClassLoader.getSystemClassLoader();
+		while (cl != null) {
+			systemClassLoaders.add(cl);
+			cl = cl.getParent();
+		}
+	}
+
+	@Override
+	public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
+			ProtectionDomain protectionDomain, byte[] classfileBuffer) {
+		if (className == null) {
+			return null;
+		}
+		try {
+			//do not transform bootstrap classes 
+			//do not transform classes on the classpath e.g. saker classes
+			boolean loginvocations = loader != null && !systemClassLoaders.contains(loader);
+			boolean preventexit = loader != null && !systemClassLoaders.contains(loader);
+			ClassReader cr = new ClassReader(classfileBuffer);
+			ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
+			ClassVisitor lastcv = cw;
+			if (loginvocations) {
+				lastcv = new MethodInvocationLoggerClassVisitor(lastcv, className);
+			}
+			if (preventexit) {
+				lastcv = new ExitCallDisablerClassVisitor(lastcv);
+			}
+			if (!FILESYSTEMPROVIDER_PROXY_INTERNAL_NAME.equals(className)) {
+				lastcv = new ClassMethodDelegateClassVisitor(lastcv, FILESYSTEMPROVIDER_DESCRIPTOR,
+						FILESYSTEMPROVIDER_INTERNAL_NAME, FILESYSTEMPROVIDER_PROXY_INTERNAL_NAME);
+			}
+			lastcv = new ClassLoaderResourceDelegateClassVisitor(lastcv);
+//			lastcv = new ClassMethodDelegateClassVisitor(lastcv, NIOFILESYSTEM_SIGNATURE, NIOFILESYSTEM_DESCRIPTOR, NIOFILESYSTEM_PROXY_DESCRIPTOR);
+			if (!IOFILESYSTEM_PROXY_INTERNAL_NAME.equals(className)) {
+				lastcv = new ClassMethodDelegateClassVisitor(lastcv, IOFILESYSTEM_DESCRIPTOR,
+						IOFILESYSTEM_INTERNAL_NAME, IOFILESYSTEM_PROXY_INTERNAL_NAME);
+			}
+			if ("java/io/FileOutputStream".equals(className)) {
+				lastcv = new ConstructorDelegateClassVisitor(lastcv, "(Ljava/io/File;Z)V",
+						IOFILESYSTEM_PROXY_INTERNAL_NAME, "newFileOutputStream",
+						new int[] { Opcodes.ALOAD, Opcodes.ILOAD });
+			} else if ("java/io/FileInputStream".equals(className)) {
+				lastcv = new ConstructorDelegateClassVisitor(lastcv, "(Ljava/io/File;)V",
+						IOFILESYSTEM_PROXY_INTERNAL_NAME, "newFileInputStream", new int[] { Opcodes.ALOAD });
+			} else if ("java/util/zip/ZipFile".equals(className)) {
+				lastcv = new ConstructorDelegateClassVisitor(lastcv, "(Ljava/io/File;ILjava/nio/charset/Charset;)V",
+						IOFILESYSTEM_PROXY_INTERNAL_NAME, "newZipFile",
+						new int[] { Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.ALOAD });
+			} else if ("java/io/RandomAccessFile".equals(className)) {
+				lastcv = new ConstructorDelegateClassVisitor(lastcv, "(Ljava/io/File;Ljava/lang/String;)V",
+						IOFILESYSTEM_PROXY_INTERNAL_NAME, "newRandomAccessFile",
+						new int[] { Opcodes.ALOAD, Opcodes.ALOAD });
+			}
+			cr.accept(lastcv, 0);
+			return cw.toByteArray();
+		} catch (Throwable e) {
+			System.err.println("TestingInstrumentationAgent.UserClassFileTransformer.transform() failed to transform "
+					+ className + " in " + loader + " bytelen: " + classfileBuffer.length);
+//			System.err.println("Bytes: " + Arrays.toString(classfileBuffer));
+			e.printStackTrace();
+		}
+		return null;
+	}
+}
