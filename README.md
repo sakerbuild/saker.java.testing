@@ -1,1 +1,17 @@
 # saker.java.testing
+
+The project implements incremental Java testing support for the [saker.build system](https://saker.build). The implementation dynamically instruments the tested classes to record the dependencies. It can track the accessed classes and files on a test-case basis.
+
+See the [documentation](https://saker.build/saker.java.testing/doc/) for more information.
+
+## Build instructions
+
+The project uses the [saker.build system](https://saker.build) for building. It requires both JDK8 and JDK9 to be installed. Use the following command to build the project:
+
+```
+java -jar path/to/saker.build.jar -bd build -EUsaker.java.jre.install.locations=path/to/jdk8;path/to/jdk9 compile saker.build
+```
+
+## License
+
+TBD TODO
