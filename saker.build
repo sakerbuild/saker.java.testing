@@ -177,6 +177,10 @@ export(
 					Directory: $compile[mainjavac][ClassDirectory],
 					Resources: saker/java/testing/impl/**,
 				},
+				{
+					Files: LICENSE,
+					TargetDirectory: META-INF,
+				},
 			] + ($compile[testapi][enabled] ? [{
 				Directory: $compile[testapi][javac][ClassDirectory],
 				Resources: **/*.class,
@@ -199,7 +203,11 @@ export(
 						api/src/main/,
 					],
 					Resources: **/*.java,
-				}
+				},
+				{
+					Files: LICENSE,
+					TargetDirectory: META-INF,
+				},
 			],
 			Manifest: {
 				MainAttributes: {
@@ -225,6 +233,10 @@ export(
 				Directory: $compile[agentjavac][ClassDirectory],
 				Resources: **,
 			},
+			{
+				Files: LICENSE,
+				TargetDirectory: META-INF,
+			},
 		],
 		Manifest: {
 			MainAttributes: {
@@ -244,6 +256,10 @@ export(
 			{
 				Directory: $compile[bootstrapagentjavac][ClassDirectory],
 				Resources: **,
+			},
+			{
+				Files: LICENSE,
+				TargetDirectory: META-INF,
 			},
 		],
 		Manifest: {
@@ -265,7 +281,11 @@ export(
 					"agent-{ $jdk }/src/main/",
 				],
 				Resources: **/*.java,
-			}
+			},
+			{
+				Files: LICENSE,
+				TargetDirectory: META-INF,
+			},
 		],
 		Manifest: {
 			MainAttributes: {
