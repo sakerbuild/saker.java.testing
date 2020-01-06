@@ -302,20 +302,22 @@ export9(){
 	include(export, jdk: jdk9)
 }
 exportall(
+	in testapicompile = include(_testapicompile),
 	out bundlepaths,
+	out exportbyjdkid,
 ){
-	$compilebyjdkid = foreach $jdk in static(TARGET_JDKS) 
+	$exportbyjdkid = foreach $jdk in static(TARGET_JDKS) 
 		with $export {
-		$export = include(export, compile: include(compile, jdk: $jdk[Id]))
+		$export = include(export, compile: include(compile, jdk: $jdk[Id], testapi: $testapicompile))
 	}: {
 		$jdk[Id]: $export
 	}
 	$bundlepaths = [ 
-		$compilebyjdkid[jdk8][mainjar][Path],
-		$compilebyjdkid[jdk8][apijar][Path],
-		$compilebyjdkid[jdk8][impljar][Path],
-		$compilebyjdkid[jdk8][sourcejar][Path],
-	] + foreach $jdkid, $export in $compilebyjdkid: [ 
+		$exportbyjdkid[jdk8][mainjar][Path],
+		$exportbyjdkid[jdk8][apijar][Path],
+		$exportbyjdkid[jdk8][impljar][Path],
+		$exportbyjdkid[jdk8][sourcejar][Path],
+	] + foreach $jdkid, $export in $exportbyjdkid: [ 
 		$export[agentjar][Path], 
 		$export[bootstrapagentjar][Path],
 		$export[agentssourcejar][Path], 
@@ -336,9 +338,11 @@ upload(){
 		Overwrite: true,
 	)
 }
-test(){
+test(
+	in jreversion = 8,
+){
 	$testapi = include(_testapicompile, enabled: true)
-	$export = include(export, compile: include(compile, testapi: $testapi))
+	$export = include(exportall, testapicompile: $testapi)
 	
 	$testutiljavac = saker.java.compile(
 		SourceDirectories: [
@@ -367,7 +371,10 @@ test(){
 	)
 	$resolveddependencies = nest.dependency.resolve(
 		Bundles: global(saker.java.testing_DEPENDENCIES) + [nest.repository.support, saker.standard, saker.compiler.utils, saker.sdk.support],
-		Filters: nest.dependency.filter.kind(classpath)
+		Filters: nest.dependency.filter.kind(classpath),
+		DependencyConstraints: {
+			JREMajorVersion: $jreversion,
+		},
 	)
 	
 	$test = saker.java.test(
@@ -378,9 +385,9 @@ test(){
 			$testapi[javac], 
 		],
 		DependencyClassPath: [
-			$export[compile][mainjavac],
-			$export[compile][agentjavac],
-			$export[compile][bootstrapagentjavac],
+			$export[exportbyjdkid][jdk8][compile][mainjavac],
+			$export[exportbyjdkid][jdk8][compile][agentjavac],
+			$export[exportbyjdkid][jdk8][compile][bootstrapagentjavac],	
 		],
 		TestInvokerClass: testing.saker.SakerJavaTestingInvoker,
 		TestClassPath:	[
@@ -419,7 +426,14 @@ test(){
 		MaxJVMCount: 1,
 		FailFast: true,
 		AbortOnFail: true,
+		JavaSDK: saker.java.sdk($jreversion),
 		Verbose: true,
+	)
+}
+testjava9(){
+	include(
+		test, 
+		jreversion: 9,
 	)
 }
 

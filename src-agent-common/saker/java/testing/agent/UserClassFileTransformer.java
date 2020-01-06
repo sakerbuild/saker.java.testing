@@ -34,8 +34,9 @@ class UserClassFileTransformer implements ClassFileTransformer {
 	private static final String FILESYSTEMPROVIDER_PROXY_INTERNAL_NAME = Type
 			.getInternalName(NioFileSystemProviderSakerProxy.class);
 
-	private static final String IOFILESYSTEM_INTERNAL_NAME = TestingInstrumentationAgent.JAVA_IO_FILESYSTEM_PROXY_ARGUMENT_INTERNAL_NAME;
-	private static final String IOFILESYSTEM_DESCRIPTOR = "L" + IOFILESYSTEM_INTERNAL_NAME + ";";
+	private static final String IOFILESYSTEM_INTERNAL_NAME = "java/io/FileSystem";
+	private static final String IOFILESYSTEM_ARGUMENT_INTERNAL_NAME = TestingInstrumentationAgent.JAVA_IO_FILESYSTEM_PROXY_ARGUMENT_INTERNAL_NAME;
+	private static final String IOFILESYSTEM_ARGUMENT_DESCRIPTOR = "L" + IOFILESYSTEM_ARGUMENT_INTERNAL_NAME + ";";
 	private static final String IOFILESYSTEM_PROXY_INTERNAL_NAME = TestingInstrumentationAgent.JAVA_IO_FILESYSTEM_PROXY_INTERNAL_NAME;
 
 	private static final Set<ClassLoader> systemClassLoaders = new HashSet<>();
@@ -74,7 +75,7 @@ class UserClassFileTransformer implements ClassFileTransformer {
 			lastcv = new ClassLoaderResourceDelegateClassVisitor(lastcv);
 //			lastcv = new ClassMethodDelegateClassVisitor(lastcv, NIOFILESYSTEM_SIGNATURE, NIOFILESYSTEM_DESCRIPTOR, NIOFILESYSTEM_PROXY_DESCRIPTOR);
 			if (!IOFILESYSTEM_PROXY_INTERNAL_NAME.equals(className)) {
-				lastcv = new ClassMethodDelegateClassVisitor(lastcv, IOFILESYSTEM_DESCRIPTOR,
+				lastcv = new ClassMethodDelegateClassVisitor(lastcv, IOFILESYSTEM_ARGUMENT_DESCRIPTOR,
 						IOFILESYSTEM_INTERNAL_NAME, IOFILESYSTEM_PROXY_INTERNAL_NAME);
 			}
 			if ("java/io/FileOutputStream".equals(className)) {

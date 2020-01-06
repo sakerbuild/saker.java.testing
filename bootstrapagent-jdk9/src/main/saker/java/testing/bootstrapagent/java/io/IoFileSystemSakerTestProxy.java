@@ -168,93 +168,93 @@ public class IoFileSystemSakerTestProxy {
 	}
 
 	public static char getSeparator(Object fs) throws Throwable {
-		return (char) getSeparator.invokeExact(fs);
+		return (char) getSeparator.invoke(fs);
 //		return fs.getSeparator();
 	}
 
 	public static char getPathSeparator(Object fs) throws Throwable {
-		return (char) getPathSeparator.invokeExact(fs);
+		return (char) getPathSeparator.invoke(fs);
 	}
 
 	public static String normalize(Object fs, String path) throws Throwable {
-		return (String) normalize.invokeExact(fs, path);
+		return (String) normalize.invoke(fs, path);
 	}
 
 	public static int prefixLength(Object fs, String path) throws Throwable {
-		return (int) prefixLength.invokeExact(fs, path);
+		return (int) prefixLength.invoke(fs, path);
 	}
 
 	public static String resolve(Object fs, String parent, String child) throws Throwable {
-		return (String) resolveStringString.invokeExact(fs, parent, child);
+		return (String) resolveStringString.invoke(fs, parent, child);
 	}
 
 	public static String getDefaultParent(Object fs) throws Throwable {
-		return (String) getDefaultParent.invokeExact(fs);
+		return (String) getDefaultParent.invoke(fs);
 	}
 
 	public static String fromURIPath(Object fs, String path) throws Throwable {
-		return (String) fromURIPath.invokeExact(fs, path);
+		return (String) fromURIPath.invoke(fs, path);
 	}
 
 	public static boolean isAbsolute(Object fs, File f) throws Throwable {
-		return (boolean) isAbsolute.invokeExact(fs, f);
+		return (boolean) isAbsolute.invoke(fs, f);
 	}
 
 	public static String resolve(Object fs, File f) throws Throwable {
-		return (String) resolveFile.invokeExact(fs, f);
+		return (String) resolveFile.invoke(fs, f);
 	}
 
 	public static String canonicalize(Object fs, String path) throws Throwable {
 		//XXX should we add this or not?
 //		addReadImpl(path);
-		return (String) canonicalize.invokeExact(fs, path);
+		return (String) canonicalize.invoke(fs, path);
 	}
 
 	public static int getBooleanAttributes(Object fs, File f) throws Throwable {
 		addRead(f);
-		return (int) getBooleanAttributes.invokeExact(fs, f);
+		return (int) getBooleanAttributes.invoke(fs, f);
 	}
 
 	public static boolean checkAccess(Object fs, File f, int access) throws Throwable {
 		addRead(f);
-		return (boolean) checkAccess.invokeExact(fs, f, access);
+		return (boolean) checkAccess.invoke(fs, f, access);
 	}
 
 	public static boolean setPermission(Object fs, File f, int access, boolean enable, boolean owneronly)
 			throws Throwable {
 		addReadWritten(f);
-		return (boolean) setPermission.invokeExact(fs, f, access, enable, owneronly);
+		return (boolean) setPermission.invoke(fs, f, access, enable, owneronly);
 	}
 
 	public static long getLastModifiedTime(Object fs, File f) throws Throwable {
 		addRead(f);
-		return (long) getLastModifiedTime.invokeExact(fs, f);
+		return (long) getLastModifiedTime.invoke(fs, f);
 	}
 
 	public static long getLength(Object fs, File f) throws Throwable {
 		addRead(f);
-		return (long) getLength.invokeExact(fs, f);
+		return (long) getLength.invoke(fs, f);
 	}
 
 	public static boolean createFileExclusively(Object fs, String pathname) throws Throwable {
 		addReadWritten(pathname);
-		return (boolean) createFileExclusively.invokeExact(fs, pathname);
+		return (boolean) createFileExclusively.invoke(fs, pathname);
 	}
 
 	public static boolean delete(Object fs, File f) throws Throwable {
 		addReadWritten(f);
-		return (boolean) delete.invokeExact(fs, f);
+		return (boolean) delete.invoke(fs, f);
 	}
 
 	public static String[] list(Object fs, File f) throws Throwable {
 		addRead(f);
 		addDirectoryListed(f);
-		String[] result = (String[]) list.invokeExact(fs, f);
+		String[] result = (String[]) list.invoke(fs, f);
 		String fstr = f.toString();
 		if (result != null) {
 			String slashedfstr = fstr;
 			if (!slashedfstr.endsWith("/") && !slashedfstr.endsWith("\\")) {
-				slashedfstr += (char) getSeparator.invokeExact(fs);
+				slashedfstr += (char) getSeparator.invoke(fs);
 			}
 			for (String r : result) {
 				String resolved = slashedfstr + r;
@@ -275,44 +275,44 @@ public class IoFileSystemSakerTestProxy {
 
 	public static boolean createDirectory(Object fs, File f) throws Throwable {
 		addReadWritten(f);
-		return (boolean) createDirectory.invokeExact(fs, f);
+		return (boolean) createDirectory.invoke(fs, f);
 	}
 
 	public static boolean rename(Object fs, File f1, File f2) throws Throwable {
 		addReadWritten(f1);
 		addReadWritten(f2);
-		return (boolean) rename.invokeExact(fs, f1, f2);
+		return (boolean) rename.invoke(fs, f1, f2);
 	}
 
 	public static boolean setLastModifiedTime(Object fs, File f, long time) throws Throwable {
 		addReadWritten(f);
-		return (boolean) setLastModifiedTime.invokeExact(fs, f, time);
+		return (boolean) setLastModifiedTime.invoke(fs, f, time);
 	}
 
 	public static boolean setReadOnly(Object fs, File f) throws Throwable {
 		addReadWritten(f);
-		return (boolean) setReadOnly.invokeExact(fs, f);
+		return (boolean) setReadOnly.invoke(fs, f);
 	}
 
 	public static File[] listRoots(Object fs) throws Throwable {
-		File[] roots = (File[]) listRoots.invokeExact(fs);
+		File[] roots = (File[]) listRoots.invoke(fs);
 		//XXX should we handle listRoots?
 		return roots;
 	}
 
 	public static long getSpace(Object fs, File f, int t) throws Throwable {
-		return (long) getSpace.invokeExact(fs, f, t);
+		return (long) getSpace.invoke(fs, f, t);
 	}
 
 	public static int getNameMax(Object fs, String path) throws Throwable {
-		return (int) getNameMax.invokeExact(fs, path);
+		return (int) getNameMax.invoke(fs, path);
 	}
 
 	public static int compare(Object fs, File f1, File f2) throws Throwable {
-		return (int) compare.invokeExact(fs, f1, f2);
+		return (int) compare.invoke(fs, f1, f2);
 	}
 
 	public static int hashCode(Object fs, File f) throws Throwable {
-		return (int) hashCode.invokeExact(fs, f);
+		return (int) hashCode.invoke(fs, f);
 	}
 }

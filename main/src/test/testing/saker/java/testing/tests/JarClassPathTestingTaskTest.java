@@ -50,7 +50,7 @@ public class JarClassPathTestingTaskTest extends JavaTestingVariablesMetricEnvir
 
 		//clear the cached JVM for consistent classloader resource requests during initialization
 		environment.clearCachedDatasWaitExecutions();
-		
+
 		files.putFile(SRC_PATH_BASE.resolve("test/ClassPathMain.java"), files
 				.getAllBytes(SRC_PATH_BASE.resolve("test/ClassPathMain.java")).toString().replace("@SecondAnnot", ""));
 		runScriptTask("build");
@@ -58,16 +58,20 @@ public class JarClassPathTestingTaskTest extends JavaTestingVariablesMetricEnvir
 		assertEquals(getMetric().getSuccessfulTests(), setOf("test.MainTest"));
 
 		environment.clearCachedDatasWaitExecutions();
-		
+
 		files.putFile(SRC_PATH_BASE.resolve("test/NewClass.java"),
 				"package test; @TestAnnot public class NewClass { }");
 		runScriptTask("build");
 		//the tests are reinvoked, because the class path jar changed
 		//but only because the test requested a classloader resource from it during initialization
-		//    JVM internals
+		//    JVM internals request some classloader resources to initialize some classes
 		//in general, the test shouldn't be reinvoked, as the classes accessed by MainTest didn't change
-		assertEquals(getMetric().getInvokedTests(), setOf("test.MainTest"));
-		assertEquals(getMetric().getSuccessfulTests(), setOf("test.MainTest"));
+		//this behaviour may be different on different JDKs
+		//    therefore we 'if' on the invoked tests and perform the assertion if non-empty 
+		if (!getMetric().getInvokedTests().isEmpty()) {
+			assertEquals(getMetric().getInvokedTests(), setOf("test.MainTest"));
+			assertEquals(getMetric().getSuccessfulTests(), setOf("test.MainTest"));
+		}
 
 		System.out.println("JUnitCompatibilityTestingTaskTest.runJavacTestImpl() SEPARATE");
 

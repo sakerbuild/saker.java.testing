@@ -159,6 +159,16 @@ import saker.build.thirdparty.saker.util.function.Functionals;
 		info = @NestInformation("Sets the output of the testing task to be verbose.\n"
 				+ "Verbose output includes more detailed information about the test cases that are being executed."))
 
+@NestParameterInformation(value = "WorkingDirectory",
+		type = @NestTypeUsage(SakerPath.class),
+		info = @NestInformation("Specifies the working directory that the tests should use.\n"
+				+ "If tests use relative paths, they will be resolved against the specified working directory. The path is "
+				+ "an execution path, not a path on the local file system."))
+
+@NestParameterInformation(value = "MaxJVMCount",
+		type = @NestTypeUsage(int.class),
+		info = @NestInformation("Specifies how many JVM processes may be spawned at maximum to run the tests."))
+
 public class JavaTesterTaskFactory extends FrontendTaskFactory<Object> {
 	private static final long serialVersionUID = 1L;
 
