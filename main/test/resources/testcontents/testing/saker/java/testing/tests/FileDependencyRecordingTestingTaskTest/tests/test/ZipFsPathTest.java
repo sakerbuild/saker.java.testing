@@ -18,6 +18,6 @@ public class ZipFsPathTest {
 	public void testzipfspath() throws Throwable {
 		Map<String, String> env = new HashMap<>();
 		Path zipfile = Paths.get("nonexistent/path/to/archive.zip");
-		FileSystem fs = FileSystems.newFileSystem(zipfile, null);
+		FileSystem fs = FileSystems.newFileSystem(zipfile, (ClassLoader) null);
 	}
 }
