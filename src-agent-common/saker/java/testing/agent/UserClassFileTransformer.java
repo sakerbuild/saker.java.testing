@@ -21,11 +21,11 @@ import java.security.ProtectionDomain;
 import java.util.HashSet;
 import java.util.Set;
 
-import saker.build.thirdparty.org.objectweb.asm.ClassReader;
-import saker.build.thirdparty.org.objectweb.asm.ClassVisitor;
-import saker.build.thirdparty.org.objectweb.asm.ClassWriter;
-import saker.build.thirdparty.org.objectweb.asm.Opcodes;
-import saker.build.thirdparty.org.objectweb.asm.Type;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.ClassReader;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.ClassVisitor;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.ClassWriter;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.Opcodes;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.Type;
 import saker.java.testing.bootstrapagent.NioFileSystemProviderSakerProxy;
 
 class UserClassFileTransformer implements ClassFileTransformer {
@@ -97,10 +97,13 @@ class UserClassFileTransformer implements ClassFileTransformer {
 			cr.accept(lastcv, 0);
 			return cw.toByteArray();
 		} catch (Throwable e) {
-			System.err.println("TestingInstrumentationAgent.UserClassFileTransformer.transform() failed to transform "
-					+ className + " in " + loader + " bytelen: " + classfileBuffer.length);
+			System.err.println("Failed to transform class bytes for " + className);
+			System.err.println("Exiting...");
 //			System.err.println("Bytes: " + Arrays.toString(classfileBuffer));
 			e.printStackTrace();
+			//exit as the class transformation failure is considered to be fatal. this also notifies the
+			//testing task that the testing cannot be started.
+			System.exit(-1);
 		}
 		return null;
 	}

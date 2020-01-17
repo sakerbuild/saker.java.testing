@@ -15,9 +15,9 @@
  */
 package saker.java.testing.agent;
 
-import saker.build.thirdparty.org.objectweb.asm.ClassVisitor;
-import saker.build.thirdparty.org.objectweb.asm.MethodVisitor;
-import saker.build.thirdparty.org.objectweb.asm.Opcodes;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.ClassVisitor;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.MethodVisitor;
+import saker.java.testing.agent.thirdparty.org.objectweb.asm.Opcodes;
 
 class ConstructorDelegateClassVisitor extends ClassVisitor {
 
