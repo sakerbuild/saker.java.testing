@@ -58,6 +58,7 @@ import testing.saker.java.testing.TestFlag;
 import saker.build.thirdparty.saker.util.ImmutableUtils;
 import saker.build.thirdparty.saker.util.StringUtils;
 import saker.build.thirdparty.saker.util.io.SerialUtils;
+import saker.build.trace.BuildTrace;
 
 public class TestWorkerTaskFactory
 		implements TaskFactory<JavaTestingOutput>, Task<JavaTestingOutput>, Externalizable, TaskIdentifier {
@@ -243,6 +244,11 @@ public class TestWorkerTaskFactory
 
 	@Override
 	public JavaTestingOutput run(TaskContext taskcontext) throws Exception {
+		if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_006) {
+			BuildTrace.classifyTask(BuildTrace.CLASSIFICATION_WORKER);
+			BuildTrace.setDisplayInformation("java.test", JavaTesterTaskFactory.TASK_NAME);
+		}
+
 		taskcontext.setStandardOutDisplayIdentifier(JavaTesterTaskFactory.TASK_NAME);
 		IncrementalTestingInfo previnfo = taskcontext.getPreviousTaskOutput(IncrementalTestingInfo.class,
 				IncrementalTestingInfo.class);

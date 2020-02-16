@@ -39,6 +39,7 @@ import testing.saker.java.testing.TestFlag;
 import saker.build.thirdparty.saker.util.ImmutableUtils;
 import saker.build.thirdparty.saker.util.ObjectUtils;
 import saker.build.thirdparty.saker.util.function.Functionals;
+import saker.build.trace.BuildTrace;
 
 @NestInformation("Executes tests for Java classes.\n"
 		+ "The task will execute the specified tests in a separate Java Virtual Machine using the given test runner.\n"
@@ -232,6 +233,10 @@ public class JavaTesterTaskFactory extends FrontendTaskFactory<Object> {
 
 		@Override
 		public Object run(TaskContext taskcontext) throws Exception {
+			if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_006) {
+				BuildTrace.classifyTask(BuildTrace.CLASSIFICATION_FRONTEND);
+			}
+
 			SDKDescription[] javasdk = { null };
 			if (javaSDKOption != null) {
 				javaSDKOption.clone().accept(new SDKDescriptionTaskOption.Visitor() {

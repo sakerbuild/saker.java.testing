@@ -127,6 +127,7 @@ import saker.java.testing.impl.test.IncrementalTestingInfo.ReferencedFilePath;
 import saker.java.testing.impl.test.IncrementalTestingInfo.TestCaseState;
 import saker.java.testing.impl.test.launching.RemoteJavaRMIProcess;
 import saker.java.testing.impl.test.launching.TestInvokerDaemon;
+import saker.java.testing.main.test.JavaTesterTaskFactory;
 import saker.nest.bundle.BundleIdentifier;
 import saker.nest.bundle.JarNestRepositoryBundle;
 import saker.nest.bundle.NestBundleClassLoader;
@@ -164,6 +165,7 @@ import saker.build.thirdparty.saker.util.function.TriConsumer;
 import saker.build.thirdparty.saker.util.io.FileUtils;
 import saker.build.thirdparty.saker.util.io.ResourceCloser;
 import saker.build.thirdparty.saker.util.io.SerialUtils;
+import saker.build.trace.BuildTrace;
 
 public class IncrementalTestingHandler {
 	//TODO create test to ensure that a jar on the classpath changes, the tests are reinvoked
@@ -1086,6 +1088,15 @@ public class IncrementalTestingHandler {
 		return result;
 	}
 
+	public static String getClassSimpleNameFromBinaryName(String binaryname) {
+		if (binaryname == null) {
+			return null;
+		}
+		int dotidx = binaryname.lastIndexOf('.');
+		int dollaridx = binaryname.lastIndexOf('$', dotidx);
+		return binaryname.substring(Math.max(dotidx, dollaridx) + 1);
+	}
+
 	public IncrementalTestingInfo test() throws Exception {
 		final Path testerworkingdirpath;
 		SakerDirectory workmoddir;
@@ -1481,6 +1492,10 @@ public class IncrementalTestingHandler {
 			IncrementalTestCaseResult testcase = testsCasesToRun.take();
 			if (testcase == null) {
 				return null;
+			}
+			if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_006) {
+				BuildTrace.setDisplayInformation(getClassSimpleNameFromBinaryName(testcase.getClassName()),
+						testcase.getClassName());
 			}
 			Supplier<JavaTestingInvoker> invokersupplier;
 			try {
