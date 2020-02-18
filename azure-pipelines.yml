@@ -14,10 +14,22 @@ jobs:
       curl -s https://gist.githubusercontent.com/Sipkab/1505a8659af20003ae09295e99d3cba3/raw/azure_ubuntu_jdksetup_variables.sh -o /tmp/azure_ubuntu_jdksetup_variables.sh
       bash /tmp/azure_ubuntu_jdksetup_variables.sh 8 9
     displayName: 'Setup JDKs'
-  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64)" test
+  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64)" -trace pwd://build/build_test.trace test
     displayName: 'Test JDK 8'
-  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64)" exportall
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    displayName: 'Publish test trace'
+    inputs:
+      pathtoPublish: build/build_test.trace
+      artifactName: trace
+  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64)" -trace pwd://build/build_export.trace exportall
     displayName: 'Export'
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    displayName: 'Publish export trace'
+    inputs:
+      pathtoPublish: build/build_export.trace
+      artifactName: trace
 
 - job: jdk9
   steps:
@@ -28,8 +40,14 @@ jobs:
       curl -s https://gist.githubusercontent.com/Sipkab/1505a8659af20003ae09295e99d3cba3/raw/azure_ubuntu_jdksetup_variables.sh -o /tmp/azure_ubuntu_jdksetup_variables.sh
       bash /tmp/azure_ubuntu_jdksetup_variables.sh 8 9
     displayName: 'Setup JDKs'
-  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64)" testjava9
+  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64)" -trace pwd://build/build_test.trace testjava9
     displayName: 'Test JDK 9'
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    displayName: 'Publish test trace'
+    inputs:
+      pathtoPublish: build/build_test.trace
+      artifactName: trace_jdk9
 
 - job: jdk14
   steps:
@@ -40,5 +58,11 @@ jobs:
       curl -s https://gist.githubusercontent.com/Sipkab/1505a8659af20003ae09295e99d3cba3/raw/azure_ubuntu_jdksetup_variables.sh -o /tmp/azure_ubuntu_jdksetup_variables.sh
       bash /tmp/azure_ubuntu_jdksetup_variables.sh 8 9 14
     displayName: 'Setup JDKs'
-  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64);$(JAVA_HOME_14_X64)" testjava14
+  - script: java -jar saker.build.jar -bd build "-EUsaker.java.jre.install.locations=$(JAVA_HOME_8_X64);$(JAVA_HOME_9_X64);$(JAVA_HOME_14_X64)" -trace pwd://build/build_test.trace testjava14
     displayName: 'Test JDK 14'
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    displayName: 'Publish test trace'
+    inputs:
+      pathtoPublish: build/build_test.trace
+      artifactName: trace_jdk14

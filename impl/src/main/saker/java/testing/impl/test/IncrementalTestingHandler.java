@@ -1414,6 +1414,9 @@ public class IncrementalTestingHandler {
 							.singleton(taskContext.getExecutionContext().getEnvironment().getEnvironmentIdentifier()));
 					innertaskparams.setDuplicationCancellable(true);
 					innertaskparams.setDuplicationPredicate(new FixedTaskDuplicationPredicate(teststorun.size()));
+					if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_008) {
+						innertaskparams.setMaxEnvironmentFactor(maxjvmcount);
+					}
 					InnerTaskResults<Void> testinnertaskresults = taskContext.startInnerTask(innertaskfactory,
 							innertaskparams);
 
