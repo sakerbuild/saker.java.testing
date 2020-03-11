@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.stream.StreamSupport;
 
 @TestAnnot
 @SecondAnnot
@@ -33,7 +34,15 @@ public class Main {
 				"output.txt", outfileexpectedcontents);
 		pb.redirectErrorStream(true);
 
-		int res = pb.start().waitFor();
+		Process proc = pb.start();
+		try (InputStream procin = proc.getInputStream()) {
+			byte[] buf = new byte[4096];
+			for (int read; (read = procin.read(buf)) > 0;) {
+				System.out.write(buf, 0, read);
+			}
+		}
+		System.out.println();
+		int res = proc.waitFor();
 		if (res != 0) {
 			throw new AssertionError(res);
 		}

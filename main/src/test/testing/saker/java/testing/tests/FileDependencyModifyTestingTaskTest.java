@@ -20,6 +20,7 @@ import testing.saker.java.testing.JavaTestingVariablesMetricEnvironmentTestCase;
 
 @SakerTest
 public class FileDependencyModifyTestingTaskTest extends JavaTestingVariablesMetricEnvironmentTestCase {
+	
 	@Override
 	protected void runNestTaskTestImpl() throws Throwable {
 		runScriptTask("build");
