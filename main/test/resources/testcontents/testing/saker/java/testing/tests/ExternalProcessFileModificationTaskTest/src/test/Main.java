@@ -23,7 +23,16 @@ public class Main {
 
 		try (InputStream is = Echo.class.getClassLoader()
 				.getResourceAsStream(Echo.class.getCanonicalName().replace(".", "/") + ".class")) {
-			Files.copy(is, outcfile, StandardCopyOption.REPLACE_EXISTING);
+			try (OutputStream os = Files.newOutputStream(outcfile)) {
+				byte[] buf = new byte[4096];
+				for (int read; (read = is.read(buf)) > 0;) {
+					os.write(buf, 0, read);
+				}
+			}
+			// DO NOT USE Files.copy!!!!!
+			//    it uses InputStream.transferTo on JDK 10+, and if the input stream returns 0 from the read(byte[] ...) functions, 
+			//    then it will infinitely loop
+			//Files.copy(is, outcfile, StandardCopyOption.REPLACE_EXISTING);
 		}
 
 		Path outfile = Paths.get("output.txt");
