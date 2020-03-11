@@ -95,10 +95,34 @@ import saker.build.task.TaskFileDeltas;
 import saker.build.task.delta.DeltaType;
 import saker.build.task.delta.FileChangeDelta;
 import saker.build.task.dependencies.FileCollectionStrategy;
+import saker.build.task.identifier.TaskIdentifier;
 import saker.build.task.utils.FixedTaskDuplicationPredicate;
 import saker.build.task.utils.TaskUtils;
 import saker.build.task.utils.dependencies.DirectoryChildrenFileCollectionStrategy;
 import saker.build.task.utils.dependencies.RecursiveIgnoreCaseExtensionFileCollectionStrategy;
+import saker.build.thirdparty.saker.rmi.connection.ConstructorTransferProperties;
+import saker.build.thirdparty.saker.rmi.connection.RMIVariables;
+import saker.build.thirdparty.saker.rmi.exception.RMICallFailedException;
+import saker.build.thirdparty.saker.rmi.exception.RMIRuntimeException;
+import saker.build.thirdparty.saker.rmi.io.writer.RMIObjectWriteHandler;
+import saker.build.thirdparty.saker.util.ConcurrentPrependAccumulator;
+import saker.build.thirdparty.saker.util.DateUtils;
+import saker.build.thirdparty.saker.util.ImmutableUtils;
+import saker.build.thirdparty.saker.util.ObjectUtils;
+import saker.build.thirdparty.saker.util.ReflectUtils;
+import saker.build.thirdparty.saker.util.SetTransformingNavigableMap;
+import saker.build.thirdparty.saker.util.StringUtils;
+import saker.build.thirdparty.saker.util.classloader.ClassLoaderDataFinder;
+import saker.build.thirdparty.saker.util.classloader.JarClassLoaderDataFinder;
+import saker.build.thirdparty.saker.util.classloader.MultiDataClassLoader;
+import saker.build.thirdparty.saker.util.classloader.ParentExclusiveClassLoader;
+import saker.build.thirdparty.saker.util.classloader.PathClassLoaderDataFinder;
+import saker.build.thirdparty.saker.util.function.Functionals;
+import saker.build.thirdparty.saker.util.function.TriConsumer;
+import saker.build.thirdparty.saker.util.io.FileUtils;
+import saker.build.thirdparty.saker.util.io.ResourceCloser;
+import saker.build.thirdparty.saker.util.io.SerialUtils;
+import saker.build.trace.BuildTrace;
 import saker.build.util.cache.CacheKey;
 import saker.build.util.classloader.SakerDirectoryClassLoaderDataFinder;
 import saker.build.util.classloader.WildcardFilteringClassLoader;
@@ -127,7 +151,6 @@ import saker.java.testing.impl.test.IncrementalTestingInfo.ReferencedFilePath;
 import saker.java.testing.impl.test.IncrementalTestingInfo.TestCaseState;
 import saker.java.testing.impl.test.launching.RemoteJavaRMIProcess;
 import saker.java.testing.impl.test.launching.TestInvokerDaemon;
-import saker.java.testing.main.test.JavaTesterTaskFactory;
 import saker.nest.bundle.BundleIdentifier;
 import saker.nest.bundle.JarNestRepositoryBundle;
 import saker.nest.bundle.NestBundleClassLoader;
@@ -135,11 +158,6 @@ import saker.nest.bundle.NestRepositoryBundle;
 import saker.nest.bundle.lookup.BundleIdentifierLookupResult;
 import saker.nest.exc.BundleLoadingFailedException;
 import saker.nest.utils.NestUtils;
-import saker.build.thirdparty.saker.rmi.connection.ConstructorTransferProperties;
-import saker.build.thirdparty.saker.rmi.connection.RMIVariables;
-import saker.build.thirdparty.saker.rmi.exception.RMICallFailedException;
-import saker.build.thirdparty.saker.rmi.exception.RMIRuntimeException;
-import saker.build.thirdparty.saker.rmi.io.writer.RMIObjectWriteHandler;
 import saker.sdk.support.api.SDKPathReference;
 import saker.sdk.support.api.SDKReference;
 import saker.sdk.support.api.SDKSupportUtils;
@@ -147,25 +165,8 @@ import saker.std.api.file.location.ExecutionFileLocation;
 import saker.std.api.file.location.FileLocation;
 import saker.std.api.file.location.FileLocationVisitor;
 import saker.std.api.file.location.LocalFileLocation;
+import saker.std.api.util.SakerStandardUtils;
 import testing.saker.java.testing.TestFlag;
-import saker.build.thirdparty.saker.util.ConcurrentPrependAccumulator;
-import saker.build.thirdparty.saker.util.DateUtils;
-import saker.build.thirdparty.saker.util.ImmutableUtils;
-import saker.build.thirdparty.saker.util.ObjectUtils;
-import saker.build.thirdparty.saker.util.ReflectUtils;
-import saker.build.thirdparty.saker.util.SetTransformingNavigableMap;
-import saker.build.thirdparty.saker.util.StringUtils;
-import saker.build.thirdparty.saker.util.classloader.ClassLoaderDataFinder;
-import saker.build.thirdparty.saker.util.classloader.JarClassLoaderDataFinder;
-import saker.build.thirdparty.saker.util.classloader.MultiDataClassLoader;
-import saker.build.thirdparty.saker.util.classloader.ParentExclusiveClassLoader;
-import saker.build.thirdparty.saker.util.classloader.PathClassLoaderDataFinder;
-import saker.build.thirdparty.saker.util.function.Functionals;
-import saker.build.thirdparty.saker.util.function.TriConsumer;
-import saker.build.thirdparty.saker.util.io.FileUtils;
-import saker.build.thirdparty.saker.util.io.ResourceCloser;
-import saker.build.thirdparty.saker.util.io.SerialUtils;
-import saker.build.trace.BuildTrace;
 
 public class IncrementalTestingHandler {
 	//TODO create test to ensure that a jar on the classpath changes, the tests are reinvoked
@@ -2152,6 +2153,10 @@ public class IncrementalTestingHandler {
 				//not in a tracked directory
 				return;
 			}
+			if (SakerPathFiles.hasPathOrParent(ignoreFileChanges, filesakerpath)) {
+				//don't perform any operations on files that are explicitly ignored for testing purposes
+				return;
+			}
 
 			consumer.accept(f, ppath, filesakerpath);
 		}
@@ -2558,8 +2563,8 @@ public class IncrementalTestingHandler {
 					public void visit(LocalFileLocation loc) {
 						SakerPath path = loc.getLocalPath();
 						TaskExecutionUtilities taskutils = taskContext.getTaskUtilities();
-						ContentDescriptor cd = taskutils.getReportExecutionDependency(
-								new LocalPathFileContentDescriptorExecutionProperty(path));
+						ContentDescriptor cd = taskutils.getReportExecutionDependency(SakerStandardUtils
+								.createLocalFileContentDescriptorExecutionProperty(path, taskContext.getTaskId()));
 						if (cd == null) {
 							throw ObjectUtils
 									.sneakyThrow(new FileNotFoundException("Class path local file not found: " + path));
@@ -2570,7 +2575,8 @@ public class IncrementalTestingHandler {
 							//add the dependencies on the class files
 
 							LocalDirectoryClassFilesExecutionProperty.PropertyValue pval = taskutils
-									.getReportExecutionDependency(new LocalDirectoryClassFilesExecutionProperty(path));
+									.getReportExecutionDependency(new LocalDirectoryClassFilesExecutionProperty(path,
+											taskContext.getTaskId()));
 							cdres[0] = pval.getContents();
 						} else {
 							//TODO detect changes
@@ -2722,8 +2728,8 @@ public class IncrementalTestingHandler {
 					public void visit(LocalFileLocation loc) {
 						SakerPath path = loc.getLocalPath();
 						TaskExecutionUtilities taskutils = taskcontext.getTaskUtilities();
-						ContentDescriptor cd = taskutils.getReportExecutionDependency(
-								new LocalPathFileContentDescriptorExecutionProperty(path));
+						ContentDescriptor cd = taskutils.getReportExecutionDependency(SakerStandardUtils
+								.createLocalFileContentDescriptorExecutionProperty(path, taskcontext.getTaskId()));
 						if (cd == null) {
 							throw ObjectUtils
 									.sneakyThrow(new FileNotFoundException("Class path local file not found: " + path));
@@ -2734,7 +2740,8 @@ public class IncrementalTestingHandler {
 							//add the dependencies on the class files
 
 							LocalDirectoryClassFilesExecutionProperty.PropertyValue pval = taskutils
-									.getReportExecutionDependency(new LocalDirectoryClassFilesExecutionProperty(path));
+									.getReportExecutionDependency(new LocalDirectoryClassFilesExecutionProperty(path,
+											taskcontext.getTaskId()));
 							cdres[0] = new MultiPathContentDescriptor(pval.getContents());
 						} else {
 							cdres[0] = cd;
@@ -2745,76 +2752,6 @@ public class IncrementalTestingHandler {
 			}
 		});
 		return result;
-	}
-
-	private static class LocalPathFileContentDescriptorExecutionProperty
-			implements ExecutionProperty<ContentDescriptor>, Externalizable {
-		//TODO duplicated with JavaTaskUtils
-		private static final long serialVersionUID = 1L;
-
-		private SakerPath path;
-
-		/**
-		 * For {@link Externalizable}.
-		 */
-		public LocalPathFileContentDescriptorExecutionProperty() {
-		}
-
-		public LocalPathFileContentDescriptorExecutionProperty(SakerPath path) {
-			this.path = path;
-		}
-
-		@Override
-		public ContentDescriptor getCurrentValue(ExecutionContext executioncontext) {
-			try {
-				ContentDescriptor result = executioncontext
-						.getContentDescriptor(LocalFileProvider.getInstance().getPathKey(path));
-				return result;
-			} catch (Exception e) {
-				return null;
-			}
-		}
-
-		@Override
-		public void writeExternal(ObjectOutput out) throws IOException {
-			out.writeObject(path);
-		}
-
-		@Override
-		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-			path = (SakerPath) in.readObject();
-		}
-
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + ((path == null) ? 0 : path.hashCode());
-			return result;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			LocalPathFileContentDescriptorExecutionProperty other = (LocalPathFileContentDescriptorExecutionProperty) obj;
-			if (path == null) {
-				if (other.path != null)
-					return false;
-			} else if (!path.equals(other.path))
-				return false;
-			return true;
-		}
-
-		@Override
-		public String toString() {
-			return getClass().getSimpleName() + "[path=" + path + "]";
-		}
-
 	}
 
 	private static class LocalDirectoryClassFilesExecutionProperty
@@ -2883,6 +2820,7 @@ public class IncrementalTestingHandler {
 		}
 
 		private SakerPath path;
+		private TaskIdentifier taskId;
 
 		/**
 		 * For {@link Externalizable}.
@@ -2890,8 +2828,9 @@ public class IncrementalTestingHandler {
 		public LocalDirectoryClassFilesExecutionProperty() {
 		}
 
-		public LocalDirectoryClassFilesExecutionProperty(SakerPath path) {
+		public LocalDirectoryClassFilesExecutionProperty(SakerPath path, TaskIdentifier taskId) {
 			this.path = path;
+			this.taskId = taskId;
 		}
 
 		@Override
@@ -2909,7 +2848,7 @@ public class IncrementalTestingHandler {
 				}
 				SakerPath cpabspath = path.resolve(keypath);
 				ContentDescriptor classfilecd = executioncontext.getExecutionPropertyCurrentValue(
-						new LocalPathFileContentDescriptorExecutionProperty(cpabspath));
+						SakerStandardUtils.createLocalFileContentDescriptorExecutionProperty(cpabspath, taskId));
 				if (classfilecd == null) {
 					continue;
 				}
@@ -2921,11 +2860,13 @@ public class IncrementalTestingHandler {
 		@Override
 		public void writeExternal(ObjectOutput out) throws IOException {
 			out.writeObject(path);
+			out.writeObject(taskId);
 		}
 
 		@Override
 		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
 			path = (SakerPath) in.readObject();
+			taskId = SerialUtils.readExternalObject(in);
 		}
 
 		@Override
@@ -2949,6 +2890,11 @@ public class IncrementalTestingHandler {
 				if (other.path != null)
 					return false;
 			} else if (!path.equals(other.path))
+				return false;
+			if (taskId == null) {
+				if (other.taskId != null)
+					return false;
+			} else if (!taskId.equals(other.taskId))
 				return false;
 			return true;
 		}
