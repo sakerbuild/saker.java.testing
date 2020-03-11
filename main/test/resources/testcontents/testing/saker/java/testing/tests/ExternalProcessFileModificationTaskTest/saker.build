@@ -6,6 +6,10 @@ build {
 	$Pass = saker.java.compile(
 		SourceDirectories: src,
 		Identifier: userclasses,
+		# compile the test classes to Java 8 as we take test.Echo class and run java on it
+		SourceVersion: RELEASE_8,
+		TargetVersion: RELEASE_8,
+		Parameters: [--release, 8,],
 	)
 	saker.java.test(
 		TestRunnerClassPath: $TestRunnerPass,
