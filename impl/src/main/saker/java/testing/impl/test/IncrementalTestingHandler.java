@@ -96,7 +96,6 @@ import saker.build.task.delta.DeltaType;
 import saker.build.task.delta.FileChangeDelta;
 import saker.build.task.dependencies.FileCollectionStrategy;
 import saker.build.task.identifier.TaskIdentifier;
-import saker.build.task.utils.FixedTaskDuplicationPredicate;
 import saker.build.task.utils.TaskUtils;
 import saker.build.task.utils.dependencies.DirectoryChildrenFileCollectionStrategy;
 import saker.build.task.utils.dependencies.RecursiveIgnoreCaseExtensionFileCollectionStrategy;
@@ -1414,7 +1413,7 @@ public class IncrementalTestingHandler {
 					innertaskparams.setAllowedClusterEnvironmentIdentifiers(Collections
 							.singleton(taskContext.getExecutionContext().getEnvironment().getEnvironmentIdentifier()));
 					innertaskparams.setDuplicationCancellable(true);
-					innertaskparams.setDuplicationPredicate(new FixedTaskDuplicationPredicate(teststorun.size()));
+					innertaskparams.setDuplicationPredicate(() -> !testcasestorun.isEmpty());
 					if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_008) {
 						innertaskparams.setMaxEnvironmentFactor(maxjvmcount);
 					}
@@ -1495,6 +1494,9 @@ public class IncrementalTestingHandler {
 		public Void run(TaskContext taskcontext) throws Exception {
 			IncrementalTestCaseResult testcase = testsCasesToRun.take();
 			if (testcase == null) {
+				if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_014) {
+					//TODO omit from build trace
+				}
 				return null;
 			}
 			if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_006) {

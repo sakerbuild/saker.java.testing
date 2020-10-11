@@ -46,8 +46,7 @@ public class RemoteJavaRMIProcess implements Closeable {
 	public RemoteJavaRMIProcess(List<String> commands, String workingdirectory, ClassLoader cloader,
 			RMITransferProperties rmiproperties, ThreadGroup connectionThreadGroup) throws IOException {
 		this.commands = ImmutableUtils.makeImmutableList(commands);
-		System.out.println(
-				"Start local process: " + StringUtils.toStringJoin("\"", "\" \"", commands, "\""));
+		System.out.println("Start local process: " + StringUtils.toStringJoin("\"", "\" \"", commands, "\""));
 		ProcessBuilder pb = new ProcessBuilder(commands);
 		if (workingdirectory != null) {
 			pb.directory(new File(workingdirectory));
@@ -101,6 +100,8 @@ public class RemoteJavaRMIProcess implements Closeable {
 	public void close() {
 		if (Thread.currentThread() != shutdownHook) {
 			Runtime.getRuntime().removeShutdownHook(shutdownHook);
+		} else {
+			System.err.println("Shutdown hook: Terminating Java compiler process.");
 		}
 		if (!proc.isAlive()) {
 			//we're good
@@ -129,7 +130,7 @@ public class RemoteJavaRMIProcess implements Closeable {
 			finished = false;
 		}
 		if (!finished) {
-			System.out.println("Destroying RMI process forcibly. " + address);
+			System.err.println("Destroying test runner RMI process forcibly. (" + address + ")");
 			ProcessUtils.destroyProcessAndPossiblyChildren(proc);
 			printProcessStreams();
 		}
@@ -142,13 +143,13 @@ public class RemoteJavaRMIProcess implements Closeable {
 	private void printProcessStreams() {
 		try {
 			String cmd = StringUtils.toStringJoin("\"", "\" \"", commands, "\"");
-			System.out.println(" ---- StdOut from command: " + cmd);
-			StreamUtils.copyStream(proc.getInputStream(), System.out);
-			System.out.println();
-			System.out.println(" ---- StdErr from command: " + cmd);
-			StreamUtils.copyStream(proc.getErrorStream(), System.out);
-			System.out.println();
-			System.out.println(" -------- ");
+			System.err.println(" ---- StdOut from command: " + cmd);
+			StreamUtils.copyStream(proc.getInputStream(), System.err);
+			System.err.println();
+			System.err.println(" ---- StdErr from command: " + cmd);
+			StreamUtils.copyStream(proc.getErrorStream(), System.err);
+			System.err.println();
+			System.err.println(" -------- ");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

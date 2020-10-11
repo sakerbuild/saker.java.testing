@@ -37,6 +37,9 @@ import saker.build.task.Task;
 import saker.build.task.TaskContext;
 import saker.build.task.TaskFactory;
 import saker.build.task.identifier.TaskIdentifier;
+import saker.build.thirdparty.saker.util.ImmutableUtils;
+import saker.build.thirdparty.saker.util.io.SerialUtils;
+import saker.build.trace.BuildTrace;
 import saker.java.compiler.api.classpath.JavaClassPath;
 import saker.java.compiler.api.compile.SakerJavaCompilerUtils;
 import saker.java.testing.api.test.JavaTestingOutput;
@@ -55,10 +58,6 @@ import saker.std.api.environment.qualifier.EnvironmentQualifier;
 import saker.std.api.environment.qualifier.EnvironmentQualifierVisitor;
 import saker.std.api.environment.qualifier.PropertyEnvironmentQualifier;
 import testing.saker.java.testing.TestFlag;
-import saker.build.thirdparty.saker.util.ImmutableUtils;
-import saker.build.thirdparty.saker.util.StringUtils;
-import saker.build.thirdparty.saker.util.io.SerialUtils;
-import saker.build.trace.BuildTrace;
 
 public class TestWorkerTaskFactory
 		implements TaskFactory<JavaTestingOutput>, Task<JavaTestingOutput>, Externalizable, TaskIdentifier {
@@ -294,8 +293,9 @@ public class TestWorkerTaskFactory
 		taskcontext.setTaskOutput(IncrementalTestingInfo.class, info);
 
 		if (abortOnFail && info.isAnyTestFailed()) {
-			JavaTestingFailedException exc = new JavaTestingFailedException("Testing was unsuccessful. ("
-					+ StringUtils.toStringJoin(", ", info.getUnsuccessfulTestClassNames()) + ")");
+			int failedc = info.getUnsuccessfulTestClassNames().size();
+			JavaTestingFailedException exc = new JavaTestingFailedException(
+					"Testing was unsuccessful. (" + failedc + (failedc == 1 ? " test" : " tests") + ")");
 			for (Throwable e : testhandler.getExceptions()) {
 				exc.addSuppressed(e);
 			}
