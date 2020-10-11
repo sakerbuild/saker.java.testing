@@ -57,6 +57,9 @@ public class IoFileSystemSakerTestProxy {
 	private static final MethodHandle compare;
 	private static final MethodHandle hashCode;
 
+	//from JDK 15
+	private static final MethodHandle hasBooleanAttributes;
+
 	static {
 		try {
 			Class<?> fsclass = Class.forName("java.io.FileSystem", false, File.class.getClassLoader());
@@ -95,6 +98,9 @@ public class IoFileSystemSakerTestProxy {
 			getNameMax = unreflectFileSystemMethod(lookup, fsclass, "getNameMax", int.class, String.class);
 			compare = unreflectFileSystemMethod(lookup, fsclass, "compare", int.class, File.class, File.class);
 			hashCode = unreflectFileSystemMethod(lookup, fsclass, "hashCode", int.class, File.class);
+
+			hasBooleanAttributes = tryUnreflectFileSystemMethod(lookup, fsclass, "hasBooleanAttributes", boolean.class,
+					File.class, int.class);
 		} catch (Exception e) {
 			throw new AssertionError(e);
 		}
@@ -105,6 +111,17 @@ public class IoFileSystemSakerTestProxy {
 		Method m = fsclass.getMethod(methodname, parametertypes);
 		m.setAccessible(true);
 		return lookup.unreflect(m);
+	}
+
+	private static MethodHandle tryUnreflectFileSystemMethod(Lookup lookup, Class<?> fsclass, String methodname,
+			Class<?> returntype, Class<?>... parametertypes) {
+		try {
+			Method m = fsclass.getMethod(methodname, parametertypes);
+			m.setAccessible(true);
+			return lookup.unreflect(m);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 //	private static void addWritten(File file) {
@@ -314,5 +331,9 @@ public class IoFileSystemSakerTestProxy {
 
 	public static int hashCode(Object fs, File f) throws Throwable {
 		return (int) hashCode.invoke(fs, f);
+	}
+
+	public static boolean hasBooleanAttributes(Object fs, File f, int attributes) throws Throwable {
+		return (boolean) hasBooleanAttributes.invoke(fs, f, attributes);
 	}
 }
