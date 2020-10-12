@@ -431,16 +431,25 @@ test(
 	)
 }
 testjava9(){
-	include(
-		test, 
-		jreversion: 9,
-	)
+	test(jreversion: 9)
+}
+testjava10(){
+	test(jreversion: 10)
+}
+testjava11(){
+	test(jreversion: 11)
+}
+testjava12(){
+	test(jreversion: 12)
+}
+testjava13(){
+	test(jreversion: 13)
 }
 testjava14(){
-	include(
-		test, 
-		jreversion: 14,
-	)
+	test(jreversion: 14)
+}
+testjava15(){
+	test(jreversion: 15)
 }
 
 _testapicompile(
