@@ -50,7 +50,7 @@ class MethodInvocationLoggerClassVisitor extends ClassVisitor {
 	private final int classIndex;
 
 	public MethodInvocationLoggerClassVisitor(ClassVisitor cv, String className) {
-		super(Opcodes.ASM7, cv);
+		super(UserClassFileTransformer.ASM_API, cv);
 		this.className = className;
 		this.classIndex = InstrumentationData.getClassIndex(className);
 	}

@@ -24,7 +24,7 @@ import saker.java.testing.bootstrapagent.TestFileRequestor;
 class ClassLoaderResourceDelegateClassVisitor extends ClassVisitor {
 
 	public ClassLoaderResourceDelegateClassVisitor(ClassVisitor classVisitor) {
-		super(Opcodes.ASM7, classVisitor);
+		super(UserClassFileTransformer.ASM_API, classVisitor);
 	}
 
 	@Override

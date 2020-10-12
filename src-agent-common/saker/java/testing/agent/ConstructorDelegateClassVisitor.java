@@ -28,7 +28,7 @@ class ConstructorDelegateClassVisitor extends ClassVisitor {
 
 	public ConstructorDelegateClassVisitor(ClassVisitor classVisitor, String methodSignature,
 			String targetClassDescriptor, String targetMethodName, int[] argumentOpcodes) {
-		super(Opcodes.ASM7, classVisitor);
+		super(UserClassFileTransformer.ASM_API, classVisitor);
 		this.methodDescriptor = methodSignature;
 		this.targetClassInternalName = targetClassDescriptor;
 		this.targetMethodName = targetMethodName;

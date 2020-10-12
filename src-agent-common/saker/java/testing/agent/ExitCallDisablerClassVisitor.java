@@ -25,7 +25,7 @@ class ExitCallDisablerClassVisitor extends ClassVisitor {
 	private static final String INSTRUMENTATIONDATA_INTERNAL_NAME = Type.getInternalName(InstrumentationData.class);
 
 	public ExitCallDisablerClassVisitor(ClassVisitor cv) {
-		super(Opcodes.ASM7, cv);
+		super(UserClassFileTransformer.ASM_API, cv);
 	}
 
 	@Override

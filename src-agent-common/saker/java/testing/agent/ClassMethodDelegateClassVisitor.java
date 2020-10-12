@@ -26,7 +26,7 @@ class ClassMethodDelegateClassVisitor extends ClassVisitor {
 
 	public ClassMethodDelegateClassVisitor(ClassVisitor classVisitor, String forwardParameterDescriptor,
 			String subjectInternalName, String targetInternalName) {
-		super(Opcodes.ASM7, classVisitor);
+		super(UserClassFileTransformer.ASM_API, classVisitor);
 		this.forwardParameterDescriptor = forwardParameterDescriptor;
 		this.subjectInternalName = subjectInternalName;
 		this.targetInternalName = targetInternalName;

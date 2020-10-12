@@ -29,6 +29,7 @@ import saker.java.testing.agent.thirdparty.org.objectweb.asm.Type;
 import saker.java.testing.bootstrapagent.NioFileSystemProviderSakerProxy;
 
 class UserClassFileTransformer implements ClassFileTransformer {
+	public static final int ASM_API = Opcodes.ASM9;
 	private static final String FILESYSTEMPROVIDER_INTERNAL_NAME = Type.getInternalName(FileSystemProvider.class);
 	private static final String FILESYSTEMPROVIDER_DESCRIPTOR = "L" + FILESYSTEMPROVIDER_INTERNAL_NAME + ";";
 	private static final String FILESYSTEMPROVIDER_PROXY_INTERNAL_NAME = Type
