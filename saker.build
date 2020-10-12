@@ -430,6 +430,9 @@ test(
 		Verbose: true,
 	)
 }
+testjava8(){
+	test(jreversion: 8)
+}
 testjava9(){
 	test(jreversion: 9)
 }
