@@ -19,6 +19,10 @@ import java.io.File;
 import java.io.InterruptedIOException;
 import java.io.PrintStream;
 import java.lang.instrument.Instrumentation;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 import saker.build.thirdparty.saker.util.io.JarFileUtils;
 import saker.build.thirdparty.saker.util.io.StreamUtils;
@@ -36,13 +40,15 @@ public class TestingInstrumentationAgent {
 			throw new RuntimeException(e);
 		}
 
-		//TODO it runs without explicitly opening the java.io package on JDK9. However, test it for jdk 10, 11, 12 and others
-//		Map<String, Set<Module>> extraopens = new TreeMap<>();
-//		extraopens.put("java.io", Collections
-//				.singleton(Class.forName("saker.java.testing.boostrapagent.java.io.IoFileSystemSakerTestProxy", false, null).getModule()));
-//		inst.redefineModule(File.class.getClass().getModule(), Collections.emptySet(), Collections.emptyMap(),
-//				extraopens, Collections.emptySet(), Collections.emptyMap());
-//		Class.forName("saker.java.testing.boostrapagent.java.io.IoFileSystemSakerTestProxy", true, null);
+		//need to open the java.io class so the JVM doesn't throw an exception in case of --illegal-access=deny
+		Map<String, Set<Module>> extraopens = new TreeMap<>();
+		extraopens.put("java.io",
+				Collections.singleton(Class
+						.forName("saker.java.testing.bootstrapagent.java.io.IoFileSystemSakerTestProxy", false, null)
+						.getModule()));
+		inst.redefineModule(File.class.getClass().getModule(), Collections.emptySet(), Collections.emptyMap(),
+				extraopens, Collections.emptySet(), Collections.emptyMap());
+
 		UserClassFileTransformer usertransformer = new UserClassFileTransformer();
 		inst.addTransformer(usertransformer, true);
 		for (Class<?> c : inst.getAllLoadedClasses()) {

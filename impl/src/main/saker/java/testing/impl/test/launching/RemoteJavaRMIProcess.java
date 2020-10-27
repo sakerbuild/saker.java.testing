@@ -101,7 +101,7 @@ public class RemoteJavaRMIProcess implements Closeable {
 		if (Thread.currentThread() != shutdownHook) {
 			Runtime.getRuntime().removeShutdownHook(shutdownHook);
 		} else {
-			System.err.println("Shutdown hook: Terminating Java compiler process.");
+			System.err.println("Shutdown hook: Terminating Java testing process.");
 		}
 		if (!proc.isAlive()) {
 			//we're good
