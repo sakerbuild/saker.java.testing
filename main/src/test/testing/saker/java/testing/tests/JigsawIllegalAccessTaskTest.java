@@ -15,26 +15,11 @@
  */
 package testing.saker.java.testing.tests;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
-
-import saker.build.thirdparty.saker.util.ObjectUtils;
-import saker.build.util.java.JavaTools;
 import testing.saker.SakerTest;
 import testing.saker.java.testing.JavaTestingVariablesMetricEnvironmentTestCase;
 
 @SakerTest
 public class JigsawIllegalAccessTaskTest extends JavaTestingVariablesMetricEnvironmentTestCase {
-	@Override
-	protected Map<String, ?> getTaskVariables() {
-		Map<String, Object> result = ObjectUtils.newTreeMap(super.getTaskVariables());
-		result.put("test.process_args",
-				JavaTools.getCurrentJavaMajorVersion() >= 9 ? Arrays.asList("--illegal-access=deny")
-						: Collections.emptyList());
-		return result;
-	}
-
 	@Override
 	protected void runNestTaskTestImpl() throws Throwable {
 		//just run a simple test that illegally accesses some stuff in java.io

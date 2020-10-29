@@ -238,7 +238,29 @@ public class IncrementalTestingHandler {
 			List<String> commands = new ArrayList<>();
 			commands.add(javaExe.toString());
 			if (!ObjectUtils.isNullOrEmpty(processJVMArguments)) {
-				commands.addAll(processJVMArguments);
+				for (Iterator<String> it = processJVMArguments.iterator(); it.hasNext();) {
+					String arg = it.next();
+					if (javaMajor < 9) {
+						if (arg.startsWith("--illegal-access=")) {
+							continue;
+						}
+						if ("--add-reads".equals(arg) || "--add-exports".equals(arg) || "--add-opens".equals(arg)) {
+							//these arguments are not available on java 8 and below
+							if (!it.hasNext()) {
+								//missing argument? just ignore and break the loop as there are no more arguments
+								break;
+							}
+							//skip its argument as well.
+							it.next();
+							continue;
+						}
+					} else if (javaMajor < 11) {
+						if (arg.equals("--enable-preview")) {
+							continue;
+						}
+					}
+					commands.add(arg);
+				}
 			}
 			ObjectUtils.addAll(commands, "-javaagent:" + agentpath + "=" + bootstrapagentpath,
 					"-D" + PropertyNames.PROPERTY_SAKER_REFERENCE_POLICY + "="
@@ -448,7 +470,7 @@ public class IncrementalTestingHandler {
 	//XXX maybe reify this ignoring with wildcards?
 	private final NavigableSet<SakerPath> ignoreFileChanges;
 
-	private List<String> processJVMArguments;
+	private List<String> processJVMArguments = Collections.emptyList();
 
 	private Collection<Throwable> exceptions = new ArrayList<>();
 

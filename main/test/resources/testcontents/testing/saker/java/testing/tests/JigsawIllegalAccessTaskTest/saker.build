@@ -15,6 +15,6 @@ build {
 		TestClassPath: $Pass,
 		MaxJVMCount: 1,
 		AbortOnFail: false,
-		ProcessJVMParameters: test.process_args(),
+		ProcessJVMParameters: [--illegal-access=deny],
 	)
 }

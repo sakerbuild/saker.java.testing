@@ -136,7 +136,9 @@ import saker.build.trace.BuildTrace;
 				+ "\"-agentlib:jdwp=transport=dt_socket,address=localhost:5432,server=y,suspend=y,quiet=y\" will start the process "
 				+ "by listening on the 5432 port for a debugger after being started. We recommend connecting to the test process "
 				+ "using your Java IDE of choice. When you specify this argument make sure to add \"quite=y\", else the "
-				+ "task may not initialize the process successfully."))
+				+ "task may not initialize the process successfully.\n"
+				+ "Some parameters may be filtered out based on the supported options of the java executable. E.g. --enable-preview won't "
+				+ "be passed to the test process if it is below the Java major version 11."))
 
 @NestParameterInformation(value = "FailFast",
 		type = @NestTypeUsage(boolean.class),
