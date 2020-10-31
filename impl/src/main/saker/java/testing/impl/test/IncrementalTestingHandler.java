@@ -254,7 +254,8 @@ public class IncrementalTestingHandler {
 							it.next();
 							continue;
 						}
-					} else if (javaMajor < 11) {
+					}
+					if (javaMajor < 11) {
 						if (arg.equals("--enable-preview")) {
 							continue;
 						}
