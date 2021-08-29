@@ -254,11 +254,6 @@ public class TestWorkerTaskFactory
 
 		ExecutionContext context = taskcontext.getExecutionContext();
 		SakerEnvironment environment = context.getEnvironment();
-		Path sakerjar = environment.getEnvironmentJarPath();
-
-		if (sakerjar == null) {
-			throw new IOException("Failed to run tests, Saker JAR path is not available");
-		}
 
 		SDKReference javasdkref = toSDKReference(taskcontext, javaSDK);
 
@@ -271,9 +266,9 @@ public class TestWorkerTaskFactory
 			}
 		}
 
-		IncrementalTestingHandler testhandler = new IncrementalTestingHandler(taskcontext, context, sakerjar,
-				javasdkref, testRunnerClassPath, classPath, testClassPath,
-				new TestInvokerParameters(testInvokerParameters), testClasses, previnfo, igenorefilechanges);
+		IncrementalTestingHandler testhandler = new IncrementalTestingHandler(taskcontext, context, javasdkref,
+				testRunnerClassPath, classPath, testClassPath, new TestInvokerParameters(testInvokerParameters),
+				testClasses, previnfo, igenorefilechanges);
 		testhandler.setFailFast(failFast);
 		testhandler.setSuccessExitCodes(successExitCodes);
 		testhandler.setMaxJVMCount(maxJVMCount);

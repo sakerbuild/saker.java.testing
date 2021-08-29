@@ -23,13 +23,8 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -63,7 +58,6 @@ import saker.build.file.SakerDirectory;
 import saker.build.file.SakerFile;
 import saker.build.file.content.ContentDescriptor;
 import saker.build.file.content.DirectoryContentDescriptor;
-import saker.build.file.content.FileAttributesContentDescriptor;
 import saker.build.file.content.MultiPathContentDescriptor;
 import saker.build.file.content.NonExistentContentDescriptor;
 import saker.build.file.content.NullContentDescriptor;
@@ -74,14 +68,10 @@ import saker.build.file.path.WildcardPath;
 import saker.build.file.provider.FileEntry;
 import saker.build.file.provider.LocalFileProvider;
 import saker.build.file.provider.SakerPathFiles;
-import saker.build.launching.Main;
-import saker.build.meta.PropertyNames;
-import saker.build.runtime.environment.SakerEnvironment;
 import saker.build.runtime.execution.ExecutionContext;
 import saker.build.runtime.execution.ExecutionProperty;
 import saker.build.runtime.execution.SakerLog;
 import saker.build.runtime.params.ExecutionPathConfiguration;
-import saker.build.runtime.repository.RepositoryEnvironment;
 import saker.build.task.CommonTaskContentDescriptors;
 import saker.build.task.InnerTaskExecutionParameters;
 import saker.build.task.InnerTaskResultHolder;
@@ -122,10 +112,8 @@ import saker.build.thirdparty.saker.util.io.FileUtils;
 import saker.build.thirdparty.saker.util.io.ResourceCloser;
 import saker.build.thirdparty.saker.util.io.SerialUtils;
 import saker.build.trace.BuildTrace;
-import saker.build.util.cache.CacheKey;
 import saker.build.util.classloader.SakerDirectoryClassLoaderDataFinder;
 import saker.build.util.classloader.WildcardFilteringClassLoader;
-import saker.build.util.config.ReferencePolicy;
 import saker.build.util.property.BuildTimeExecutionProperty;
 import saker.java.compiler.api.classpath.ClassPathEntry;
 import saker.java.compiler.api.classpath.ClassPathReference;
@@ -148,15 +136,12 @@ import saker.java.testing.api.test.invoker.TestInvokerParameters;
 import saker.java.testing.impl.test.IncrementalTestingInfo.IncrementalTestCaseResult;
 import saker.java.testing.impl.test.IncrementalTestingInfo.ReferencedFilePath;
 import saker.java.testing.impl.test.IncrementalTestingInfo.TestCaseState;
-import saker.java.testing.impl.test.launching.RemoteJavaRMIProcess;
 import saker.java.testing.impl.test.launching.TestInvokerDaemon;
 import saker.nest.bundle.BundleIdentifier;
-import saker.nest.bundle.JarNestRepositoryBundle;
 import saker.nest.bundle.NestBundleClassLoader;
 import saker.nest.bundle.NestRepositoryBundle;
 import saker.nest.bundle.lookup.BundleIdentifierLookupResult;
 import saker.nest.exc.BundleLoadingFailedException;
-import saker.nest.utils.NestUtils;
 import saker.sdk.support.api.SDKPathReference;
 import saker.sdk.support.api.SDKReference;
 import saker.sdk.support.api.SDKSupportUtils;
@@ -173,274 +158,10 @@ public class IncrementalTestingHandler {
 	private static final ClassLoaderDataFinder[] EMPTY_CLASSLOADERDATAFINDER_ARRAY = new ClassLoaderDataFinder[0];
 	private static final ResourceDescriptorClassLoaderDataFinderSupplier[] EMPTY_RESOURCEDESCRIPTORCLASSLOADERDATAFINDERSUPPLIER_ARRAY = new ResourceDescriptorClassLoaderDataFinderSupplier[0];
 
-	private static final Class<?> TEST_INVOKER_DAEMON_MAIN_CLASS = TestInvokerDaemon.class;
-	private static final String TEST_INVOKER_DAEMON_MAIN_CLASS_NAME = TEST_INVOKER_DAEMON_MAIN_CLASS.getName();
-	private static final String TEST_INVOKER_DAEMON_ENCLOSING_BUNDLE_IDENTIFIER_STRING = NestUtils
-			.getClassBundleIdentifier(TEST_INVOKER_DAEMON_MAIN_CLASS).toString();
-
 	private static final String EXTENSION_CLASSFILE = "class";
-
-	private static class RemoteTester {
-		private RemoteJavaRMIProcess rmiProcess;
-
-		public RemoteTester(RemoteJavaRMIProcess rmiProcess) {
-			this.rmiProcess = rmiProcess;
-		}
-
-		public RemoteJavaRMIProcess getRMIProcess() {
-			return rmiProcess;
-		}
-	}
-
-	private static class RemoteJavaTesterCacheKey implements CacheKey<RemoteTester, RemoteJavaRMIProcess> {
-
-		private transient final SakerEnvironment environment;
-
-		private final Path javaExe;
-		private final Path sakerJar;
-		private final Path workingDirectory;
-		private final int identifier;
-		private final Map<String, String> executionUserParameters;
-		private final List<String> processJVMArguments;
-		private final int javaMajor;
-
-		public RemoteJavaTesterCacheKey(SakerEnvironment environment, Path javaExe, Path sakerJar,
-				Path workingdirectory, int identifier, List<String> processjvmarguments, int javaMajor) {
-			this.environment = environment;
-			this.javaExe = javaExe;
-			this.sakerJar = sakerJar;
-			this.workingDirectory = workingdirectory;
-			this.identifier = identifier;
-			this.processJVMArguments = processjvmarguments;
-			this.javaMajor = javaMajor;
-
-			NestBundleClassLoader cl = (NestBundleClassLoader) IncrementalTestingHandler.class.getClassLoader();
-			Map<String, String> userparams = cl.getBundleStorageConfiguration().getBundleLookup()
-					.getLocalConfigurationUserParameters(null);
-			this.executionUserParameters = userparams;
-		}
-
-		@Override
-		public void close(RemoteTester data, RemoteJavaRMIProcess resource) throws Exception {
-			resource.close();
-		}
-
-		@Override
-		public RemoteJavaRMIProcess allocate() throws Exception {
-			Path testingAgentJar = getAgentJarPath(environment, javaMajor);
-			Path bootstrapAgentJar = getBootstrapAgentJarPath(environment, javaMajor);
-			String agentpath = getShortPathedAgentPath(testingAgentJar);
-			String bootstrapagentpath = getShortPathedAgentPath(bootstrapAgentJar);
-
-			NestBundleClassLoader cl = (NestBundleClassLoader) IncrementalTestingHandler.class.getClassLoader();
-
-			RepositoryEnvironment repoenv = cl.getRepository().getRepositoryEnvironment();
-			List<String> commands = new ArrayList<>();
-			commands.add(javaExe.toString());
-			if (!ObjectUtils.isNullOrEmpty(processJVMArguments)) {
-				for (Iterator<String> it = processJVMArguments.iterator(); it.hasNext();) {
-					String arg = it.next();
-					if (javaMajor < 9) {
-						if (arg.startsWith("--illegal-access=")) {
-							continue;
-						}
-						if ("--add-reads".equals(arg) || "--add-exports".equals(arg) || "--add-opens".equals(arg)) {
-							//these arguments are not available on java 8 and below
-							if (!it.hasNext()) {
-								//missing argument? just ignore and break the loop as there are no more arguments
-								break;
-							}
-							//skip its argument as well.
-							it.next();
-							continue;
-						}
-					}
-					if (javaMajor < 11) {
-						if (arg.equals("--enable-preview")) {
-							continue;
-						}
-					}
-					commands.add(arg);
-				}
-			}
-			ObjectUtils.addAll(commands, "-javaagent:" + agentpath + "=" + bootstrapagentpath,
-					"-D" + PropertyNames.PROPERTY_SAKER_REFERENCE_POLICY + "="
-							+ ReferencePolicy.ReferencePolicyCreator.WEAK,
-
-					"-XX:MaxHeapFreeRatio=40", "-XX:MinHeapFreeRatio=15", "-XX:-OmitStackTraceInFastThrow",
-
-					"-cp", sakerJar.toAbsolutePath().normalize().toString(), Main.class.getName(),
-
-					"action", "-storage-dir", repoenv.getEnvironmentStorageDirectory().toString(), "-direct-repo",
-					repoenv.getRepositoryClassPathLoadDirectory().toString(), "main");
-
-			for (Entry<String, String> entry : executionUserParameters.entrySet()) {
-				commands.add("-U" + entry.getKey().replace("=", "\\=") + "=" + entry.getValue());
-			}
-			commands.add("-class");
-			commands.add(TEST_INVOKER_DAEMON_MAIN_CLASS_NAME);
-			commands.add("-bundle");
-			commands.add(TEST_INVOKER_DAEMON_ENCLOSING_BUNDLE_IDENTIFIER_STRING);
-
-			LocalFileProvider.getInstance().createDirectories(workingDirectory);
-			return new RemoteJavaRMIProcess(commands, workingDirectory.toString(),
-					IncrementalTestingHandler.class.getClassLoader(),
-					TestInvokerSupport.getTestInvokerRMITransferProperties(), environment.getEnvironmentThreadGroup());
-		}
-
-		private static Path getAgentJarPath(SakerEnvironment env, int javamajor) throws IOException {
-			try {
-				NestRepositoryBundle agentbundle = getBundleForJavaMajor(
-						BundleIdentifier.valueOf("saker.java.testing-agent"), javamajor);
-				if (agentbundle instanceof JarNestRepositoryBundle) {
-					return ((JarNestRepositoryBundle) agentbundle).getJarPath();
-				}
-				throw new IOException("Unrecognized agent JAR type: " + ObjectUtils.classNameOf(agentbundle));
-			} catch (BundleLoadingFailedException e) {
-				throw new IOException("Agent Jar not found.", e);
-			}
-		}
-
-		private static Path getBootstrapAgentJarPath(SakerEnvironment env, int javamajor) throws IOException {
-			try {
-				NestRepositoryBundle agentbundle = getBundleForJavaMajor(
-						BundleIdentifier.valueOf("saker.java.testing-bootstrapagent"), javamajor);
-				if (agentbundle instanceof JarNestRepositoryBundle) {
-					return ((JarNestRepositoryBundle) agentbundle).getJarPath();
-				}
-				throw new IOException("Unrecognized bootstrap agent JAR type: " + ObjectUtils.classNameOf(agentbundle));
-			} catch (BundleLoadingFailedException e) {
-				throw new IOException("Agent Bootstrap Jar not found.", e);
-			}
-		}
-
-		private static String getShortPathedAgentPath(Path path) throws NoSuchAlgorithmException, IOException {
-			//if the jar paths are too long on windows (exceeds MAX_PATH), then the process will not find them.
-			//    MAX_PATH is defined as 260, but have some threshold in order to function properly because
-			//    the documentation says some functions have less than 260 maximum character count. E.g.
-			//        When using an API to create a directory, the specified path cannot be so long that you 
-			//        cannot append an 8.3 file name (that is, the directory name cannot exceed MAX_PATH minus 12).
-
-			String pathstr = path.toString();
-			if (pathstr.length() <= 240) {
-				return pathstr;
-			}
-			String tempdir = System.getProperty("java.io.tmpdir");
-			if (tempdir == null) {
-				//no temp directory, warn the user, and return the long path.
-				//any failure will be deferred
-				SakerLog.warning()
-						.println("Temp directory not available. Failed to extract JAR with long path: " + pathstr);
-				return pathstr;
-			}
-			String pathmd5 = StringUtils.toHexString(MessageDigest.getInstance("MD5")
-					.digest(path.getParent().toString().getBytes(StandardCharsets.UTF_8)));
-			Path parentdir = Paths.get(tempdir, "saker", "shorten", pathmd5);
-			Path npath = parentdir.resolve(path.getFileName());
-			LocalFileProvider localfiles = LocalFileProvider.getInstance();
-			FileEntry currentattrs;
-			try {
-				currentattrs = localfiles.getFileAttributes(npath);
-			} catch (IOException e) {
-				currentattrs = null;
-			}
-			if (currentattrs == null
-					|| FileAttributesContentDescriptor.isChanged(currentattrs, localfiles.getFileAttributes(path))) {
-				try {
-					localfiles.createDirectories(parentdir);
-					Files.copy(path, npath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-				} catch (IOException e) {
-					SakerLog.warning().println("Failed to extract JAR with long path to temp directory: " + pathstr
-							+ " -> " + tempdir + " (" + e + ")");
-					return pathstr;
-				}
-			}
-			return npath.toString();
-		}
-
-		@Override
-		public RemoteTester generate(RemoteJavaRMIProcess resource) throws Exception {
-			return new RemoteTester(resource);
-		}
-
-		@Override
-		public boolean validate(RemoteTester data, RemoteJavaRMIProcess resource) {
-			boolean valid = resource.isValid();
-			if (!valid) {
-				resource.close();
-			}
-			return valid;
-		}
-
-		@Override
-		public long getExpiry() {
-			if (TestFlag.ENABLED) {
-				//if testing, expire ASAP to free resources
-				return 5 * DateUtils.MS_PER_SECOND;
-			}
-			return 5 * DateUtils.MS_PER_MINUTE;
-		}
-
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + ((executionUserParameters == null) ? 0 : executionUserParameters.hashCode());
-			result = prime * result + identifier;
-			result = prime * result + ((javaExe == null) ? 0 : javaExe.hashCode());
-			result = prime * result + javaMajor;
-			result = prime * result + ((processJVMArguments == null) ? 0 : processJVMArguments.hashCode());
-			result = prime * result + ((sakerJar == null) ? 0 : sakerJar.hashCode());
-			result = prime * result + ((workingDirectory == null) ? 0 : workingDirectory.hashCode());
-			return result;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			RemoteJavaTesterCacheKey other = (RemoteJavaTesterCacheKey) obj;
-			if (executionUserParameters == null) {
-				if (other.executionUserParameters != null)
-					return false;
-			} else if (!executionUserParameters.equals(other.executionUserParameters))
-				return false;
-			if (identifier != other.identifier)
-				return false;
-			if (javaExe == null) {
-				if (other.javaExe != null)
-					return false;
-			} else if (!javaExe.equals(other.javaExe))
-				return false;
-			if (javaMajor != other.javaMajor)
-				return false;
-			if (processJVMArguments == null) {
-				if (other.processJVMArguments != null)
-					return false;
-			} else if (!processJVMArguments.equals(other.processJVMArguments))
-				return false;
-			if (sakerJar == null) {
-				if (other.sakerJar != null)
-					return false;
-			} else if (!sakerJar.equals(other.sakerJar))
-				return false;
-			if (workingDirectory == null) {
-				if (other.workingDirectory != null)
-					return false;
-			} else if (!workingDirectory.equals(other.workingDirectory))
-				return false;
-			return true;
-		}
-
-	}
 
 	private TaskContext taskContext;
 	private ExecutionContext executionContext;
-	private Path sakerJarFile;
 
 	private Collection<Integer> successExitCodes;
 	private SDKReference javaSDK;
@@ -485,14 +206,12 @@ public class IncrementalTestingHandler {
 
 	//TODO clean up code comments
 
-	public IncrementalTestingHandler(TaskContext taskcontext, ExecutionContext context, Path sakerjar,
-			SDKReference javaSDK, JavaClassPath testRunnerClassPaths, JavaClassPath userClassPaths,
-			JavaClassPath testclasspathfiles, TestInvokerParameters testInvokerParameters,
-			Collection<String> testClasses, IncrementalTestingInfo previnfo,
-			NavigableSet<SakerPath> igenorefilechanges) {
+	public IncrementalTestingHandler(TaskContext taskcontext, ExecutionContext context, SDKReference javaSDK,
+			JavaClassPath testRunnerClassPaths, JavaClassPath userClassPaths, JavaClassPath testclasspathfiles,
+			TestInvokerParameters testInvokerParameters, Collection<String> testClasses,
+			IncrementalTestingInfo previnfo, NavigableSet<SakerPath> igenorefilechanges) {
 		this.taskContext = taskcontext;
 		this.executionContext = context;
-		this.sakerJarFile = sakerjar;
 		this.javaSDK = javaSDK;
 		this.ignoreFileChanges = igenorefilechanges;
 		this.testRunnerClassPaths = testRunnerClassPaths;
@@ -1419,17 +1138,17 @@ public class IncrementalTestingHandler {
 
 					TestRunnerInnerTaskFactory innertaskfactory = new TestRunnerInnerTaskFactory(this, testcasestorun,
 							testinvokerqueue, invokerinstantiatenums, maxjvmcount);
-					innertaskfactory.allclassfinders = allclassfinders;
-					innertaskfactory.classpathnottrackingfiles = classpathnottrackingfiles;
-					innertaskfactory.nondeterministicpredicate = nondeterministicpredicate;
-					innertaskfactory.rescloser = rescloser;
-					innertaskfactory.resultinfo = resultinfo;
-					innertaskfactory.testclasscp = testclasscp;
-					innertaskfactory.testerworkingdirpath = testerworkingdirpath;
-					innertaskfactory.testrunnerclasscp = testrunnerclasscp;
-					innertaskfactory.usercp = usercp;
-					innertaskfactory.workingdirectoryactualpath = workingdirectoryactualpath;
-					innertaskfactory.workmoddir = workmoddir;
+					innertaskfactory.allClassFinders = allclassfinders;
+					innertaskfactory.classPathNotTrackingFiles = classpathnottrackingfiles;
+					innertaskfactory.nonDeterministicPredicate = nondeterministicpredicate;
+					innertaskfactory.resCloser = rescloser;
+					innertaskfactory.resultInfo = resultinfo;
+					innertaskfactory.testClassClassPath = testclasscp;
+					innertaskfactory.testerWorkingDirPath = testerworkingdirpath;
+					innertaskfactory.testRunnerClassClassPath = testrunnerclasscp;
+					innertaskfactory.userClassPath = usercp;
+					innertaskfactory.workingDirectoryActualPath = workingdirectoryactualpath;
+					innertaskfactory.workSakerDir = workmoddir;
 
 					InnerTaskExecutionParameters innertaskparams = new InnerTaskExecutionParameters();
 					//TODO make the testing remote dispatchable
@@ -1482,19 +1201,19 @@ public class IncrementalTestingHandler {
 		private AtomicInteger invokerInstantiationNumber;
 		private int maxJVMCount;
 
-		private ResourceCloser rescloser;
-		private ResourceDescriptorClassLoaderDataFinderSupplier[] usercp;
-		private ResourceDescriptorClassLoaderDataFinderSupplier[] testclasscp;
-		private ResourceDescriptorClassLoaderDataFinderSupplier[] testrunnerclasscp;
-		private Path testerworkingdirpath;
+		private ResourceCloser resCloser;
+		private ResourceDescriptorClassLoaderDataFinderSupplier[] userClassPath;
+		private ResourceDescriptorClassLoaderDataFinderSupplier[] testClassClassPath;
+		private ResourceDescriptorClassLoaderDataFinderSupplier[] testRunnerClassClassPath;
+		private Path testerWorkingDirPath;
 		private ConcurrentPrependAccumulator<RemoteTester> testers = new ConcurrentPrependAccumulator<>();
 
-		private IncrementalTestingInfo resultinfo;
-		private SakerDirectory workmoddir;
-		private Path workingdirectoryactualpath;
-		private NavigableMap<ReferencedFilePath, ResourceDescriptorClassLoaderDataFinderSupplier> allclassfinders;
-		private NavigableMap<SakerPath, ContentDescriptor> classpathnottrackingfiles;
-		private Predicate<String> nondeterministicpredicate;
+		private IncrementalTestingInfo resultInfo;
+		private SakerDirectory workSakerDir;
+		private Path workingDirectoryActualPath;
+		private NavigableMap<ReferencedFilePath, ResourceDescriptorClassLoaderDataFinderSupplier> allClassFinders;
+		private NavigableMap<SakerPath, ContentDescriptor> classPathNotTrackingFiles;
+		private Predicate<String> nonDeterministicPredicate;
 
 		public TestRunnerInnerTaskFactory(IncrementalTestingHandler testingHandler,
 				ConcurrentPrependAccumulator<IncrementalTestCaseResult> testcasestorun,
@@ -1518,7 +1237,8 @@ public class IncrementalTestingHandler {
 			IncrementalTestCaseResult testcase = testsCasesToRun.take();
 			if (testcase == null) {
 				if (saker.build.meta.Versions.VERSION_FULL_COMPOUND >= 8_014) {
-					//TODO omit from build trace
+					//no more test cases to run, don't show this inner task in the build trace
+					BuildTrace.omitInnerTask();
 				}
 				return null;
 			}
@@ -1538,7 +1258,8 @@ public class IncrementalTestingHandler {
 						}
 						try {
 							JavaTestingInvoker invoker = testingHandler.getTestingInvoker(taskcontext, instantiatenum,
-									rescloser, usercp, testclasscp, testrunnerclasscp, testerworkingdirpath, testers);
+									resCloser, userClassPath, testClassClassPath, testRunnerClassClassPath,
+									testerWorkingDirPath, testers);
 							invokersupplier = Functionals.valSupplier(invoker);
 						} catch (Throwable e) {
 							//decrement back as the initialization failed
@@ -1558,8 +1279,8 @@ public class IncrementalTestingHandler {
 
 				try {
 					JavaTestingInvoker invoker = invokersupplier.get();
-					testingHandler.invokeTestingImpl(testerworkingdirpath, resultinfo, testcase, invoker, workmoddir,
-							workingdirectoryactualpath, allclassfinders, classpathnottrackingfiles);
+					testingHandler.invokeTestingImpl(testerWorkingDirPath, resultInfo, testcase, invoker, workSakerDir,
+							workingDirectoryActualPath, allClassFinders, classPathNotTrackingFiles);
 				} finally {
 					testInvokerQueue.add(invokersupplier);
 				}
@@ -1569,7 +1290,7 @@ public class IncrementalTestingHandler {
 			}
 			if (!testcase.isSuccessful()) {
 				//if the test failed, and is non deterministic, make sure we are called in the next build, even if there are no changes
-				if (nondeterministicpredicate.test(testcase.getClassName())) {
+				if (nonDeterministicPredicate.test(testcase.getClassName())) {
 					taskcontext.reportExecutionDependency(BuildTimeExecutionProperty.INSTANCE, -1L);
 				}
 				if (testingHandler.failFast) {
@@ -1776,7 +1497,7 @@ public class IncrementalTestingHandler {
 		taskContext.getTaskUtilities().reportInputFileDependency(tag, contents);
 	}
 
-	private void invokeTestingImpl(final Path testerworkingdirpath, IncrementalTestingInfo resultinfo,
+	protected void invokeTestingImpl(final Path testerworkingdirpath, IncrementalTestingInfo resultinfo,
 			IncrementalTestCaseResult tcres, JavaTestingInvoker invoker, SakerDirectory worksakerdir,
 			Path actualworkingdirectorypath,
 			NavigableMap<ReferencedFilePath, ResourceDescriptorClassLoaderDataFinderSupplier> allclassfinders,
@@ -1982,9 +1703,8 @@ public class IncrementalTestingHandler {
 		}
 		Path exepath = LocalFileProvider.toRealPath(javaexesdkpath);
 		int javamajor = Integer.parseInt(sdkmajor);
-		return executionContext.getEnvironment()
-				.getCachedData(new RemoteJavaTesterCacheKey(executionContext.getEnvironment(), exepath, sakerJarFile,
-						workingdir, identifier, processJVMArguments, javamajor));
+		return executionContext.getEnvironment().getCachedData(new RemoteJavaTesterCacheKey(
+				executionContext.getEnvironment(), exepath, workingdir, identifier, processJVMArguments, javamajor));
 	}
 
 	private static int compareByRuntimeAndSucceeded(IncrementalTestCaseResult l, IncrementalTestCaseResult r) {

@@ -27,6 +27,7 @@ import saker.build.thirdparty.saker.util.io.ByteSource;
 import saker.build.thirdparty.saker.util.io.ReadWriteBufferOutputStream;
 import saker.build.thirdparty.saker.util.io.StreamUtils;
 import saker.build.thirdparty.saker.util.thread.ThreadUtils;
+import saker.java.testing.impl.test.TestInvokerSupport;
 
 public class SakerRMIDaemon {
 	//TODO duplicated with saker.java.compiler
@@ -53,7 +54,21 @@ public class SakerRMIDaemon {
 				System.setErr(stderrps);
 				System.setIn(StreamUtils.nullInputStream());
 
-				runServer(prevout, prevout, preverr, stdout, stderr);
+				try {
+					runServer(prevout, prevout, preverr, stdout, stderr);
+				} catch (Throwable e) {
+					try {
+						System.setOut(prevout);
+						System.setErr(preverr);
+					} catch (Throwable e2) {
+						try {
+							e.addSuppressed(e2);
+						} catch (Throwable e3) {
+							// failed to suppress, don't try, ignore. some serious error has happened
+						}
+					}
+					throw e;
+				}
 			}
 		}
 	}
@@ -73,6 +88,8 @@ public class SakerRMIDaemon {
 				connection.putContextVariable(CONTEXT_VARIABLE_BASE_CLASSLOADER, baseClassLoader);
 			}
 		}) {
+			TestInvokerSupport.setRMIServerConnectionTimeoutToPropertyOrDefault(server);
+			
 			portprintout.println(server.getPort());
 			portprintout.flush();
 			portprintout = null;
