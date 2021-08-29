@@ -3,8 +3,6 @@ global(VERSION_saker.java.testing) = "0.8.6"
 global(TOOLS_OPTIONS) = [
 	{
 		Identifier: jdk8,
-		SourceVersion: RELEASE_8,
-		TargetVersion: RELEASE_8,
 		SDKs: {
 			Java: saker.java.sdk(8),
 		},
@@ -15,6 +13,10 @@ global(TOOLS_OPTIONS) = [
 			Java: saker.java.sdk(9),
 		},
 	},
+	{
+		SourceVersion: RELEASE_8,
+		TargetVersion: RELEASE_8,
+	}
 ]
 static(TARGET_JDKS) = [
 	{
