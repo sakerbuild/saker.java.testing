@@ -15,6 +15,10 @@
  */
 package java.io;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.TreeSet;
@@ -24,6 +28,31 @@ import saker.java.testing.bootstrapagent.FileAccessInfo;
 import saker.java.testing.bootstrapagent.TestFileRequestor;
 
 public class IoFileSystemSakerTestProxy {
+
+	//from temurin JDK
+	private static final MethodHandle isInvalid;
+
+	static {
+		try {
+			Class<?> fsclass = Class.forName("java.io.FileSystem", false, File.class.getClassLoader());
+			Lookup lookup = MethodHandles.publicLookup();
+
+			isInvalid = tryUnreflectFileSystemMethod(lookup, fsclass, "isInvalid", boolean.class, File.class);
+		} catch (Exception e) {
+			throw new AssertionError(e);
+		}
+	}
+
+	private static MethodHandle tryUnreflectFileSystemMethod(Lookup lookup, Class<?> fsclass, String methodname,
+			Class<?> returntype, Class<?>... parametertypes) {
+		try {
+			Method m = fsclass.getMethod(methodname, parametertypes);
+			m.setAccessible(true);
+			return lookup.unreflect(m);
+		} catch (Exception e) {
+			return null;
+		}
+	}
 
 //	private static void addWritten(File file) {
 //		addWritten(file.toString());
@@ -226,6 +255,10 @@ public class IoFileSystemSakerTestProxy {
 
 	public static int hashCode(FileSystem fs, File f) {
 		return fs.hashCode(f);
+	}
+
+	public static boolean isInvalid(FileSystem fs, File f) throws Throwable {
+		return (boolean) isInvalid.invoke(fs, f);
 	}
 
 }

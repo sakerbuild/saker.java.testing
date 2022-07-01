@@ -60,6 +60,9 @@ public class IoFileSystemSakerTestProxy {
 	//from JDK 15
 	private static final MethodHandle hasBooleanAttributes;
 
+	//from temurin JDK
+	private static final MethodHandle isInvalid;
+
 	static {
 		try {
 			Class<?> fsclass = Class.forName("java.io.FileSystem", false, File.class.getClassLoader());
@@ -101,6 +104,8 @@ public class IoFileSystemSakerTestProxy {
 
 			hasBooleanAttributes = tryUnreflectFileSystemMethod(lookup, fsclass, "hasBooleanAttributes", boolean.class,
 					File.class, int.class);
+
+			isInvalid = tryUnreflectFileSystemMethod(lookup, fsclass, "isInvalid", boolean.class, File.class);
 		} catch (Exception e) {
 			throw new AssertionError(e);
 		}
@@ -335,5 +340,9 @@ public class IoFileSystemSakerTestProxy {
 
 	public static boolean hasBooleanAttributes(Object fs, File f, int attributes) throws Throwable {
 		return (boolean) hasBooleanAttributes.invoke(fs, f, attributes);
+	}
+
+	public static boolean isInvalid(Object fs, File f) throws Throwable {
+		return (boolean) isInvalid.invoke(fs, f);
 	}
 }
