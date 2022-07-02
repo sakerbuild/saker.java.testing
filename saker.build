@@ -1,4 +1,4 @@
-global(VERSION_saker.java.testing) = "0.8.6"
+global(VERSION_saker.java.testing) = "0.8.7"
 
 global(TOOLS_OPTIONS) = [
 	{
@@ -342,6 +342,7 @@ upload(){
 }
 test(
 	in jreversion = 8,
+	in jremajor = $jreversion,
 ){
 	$testapi = include(_testapicompile, enabled: true)
 	$export = include(exportall, testapicompile: $testapi)
@@ -375,7 +376,7 @@ test(
 		Bundles: global(saker.java.testing_DEPENDENCIES) + [nest.repository.support, saker.standard, saker.compiler.utils, saker.sdk.support],
 		Filters: nest.dependency.filter.kind(classpath),
 		DependencyConstraints: {
-			JREMajorVersion: $jreversion,
+			JREMajorVersion: $jremajor,
 		},
 	)
 	
@@ -455,6 +456,12 @@ testjava14(){
 }
 testjava15(){
 	test(jreversion: 15)
+}
+testjava16(){
+	test(jreversion: 16)
+}
+testjava17(){
+	test(jreversion: 17)
 }
 
 _testapicompile(
