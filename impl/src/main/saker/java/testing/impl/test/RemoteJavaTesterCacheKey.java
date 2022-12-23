@@ -96,6 +96,10 @@ public class RemoteJavaTesterCacheKey implements CacheKey<RemoteTester, RemoteJa
 					if (arg.startsWith("--illegal-access=")) {
 						continue;
 					}
+					if (arg.startsWith("-Xlog:")) {
+						//only supported since Java 9
+						continue;
+					}
 					if ("--add-reads".equals(arg) || "--add-exports".equals(arg) || "--add-opens".equals(arg)) {
 						//these arguments are not available on java 8 and below
 						if (!it.hasNext()) {
