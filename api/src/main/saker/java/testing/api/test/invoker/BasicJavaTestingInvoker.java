@@ -185,6 +185,10 @@ public abstract class BasicJavaTestingInvoker implements JavaTestingInvoker {
 							failureinfo.append(stderr.toString());
 							failureinfo.append("\n");
 						}
+						if (failureinfo.length() > 0) {
+							//append trailing marker so the reader knows where the end of the given output is
+							failureinfo.append("    -----   END   -----     \n");
+						}
 						result.setFailureInformation(failureinfo.toString());
 					}
 					return result;
