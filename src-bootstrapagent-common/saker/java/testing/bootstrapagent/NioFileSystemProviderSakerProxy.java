@@ -15,9 +15,14 @@
  */
 package saker.java.testing.bootstrapagent;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.FileChannel;
@@ -45,6 +50,36 @@ import java.util.concurrent.ExecutorService;
 
 //TODO add support to creation of JAR filesystem
 public class NioFileSystemProviderSakerProxy {
+
+	//from JDK 20
+	private static final MethodHandle exists;
+	private static final MethodHandle readAttributesIfExists;
+
+	static {
+		try {
+			Class<?> fsclass = Class.forName("java.nio.file.spi.FileSystemProvider", false,
+					File.class.getClassLoader());
+			Lookup lookup = MethodHandles.lookup();
+
+			exists = tryUnreflectMethod(lookup, fsclass, "exists", boolean.class, Path.class, LinkOption[].class);
+			readAttributesIfExists = tryUnreflectMethod(lookup, fsclass, "readAttributesIfExists",
+					BasicFileAttributes.class, Path.class, Class.class, LinkOption[].class);
+		} catch (Exception e) {
+			throw new AssertionError(e);
+		}
+	}
+
+	private static MethodHandle tryUnreflectMethod(Lookup lookup, Class<?> fsclass, String methodname,
+			Class<?> returntype, Class<?>... parametertypes) {
+		try {
+			Method m = fsclass.getMethod(methodname, parametertypes);
+			m.setAccessible(true);
+			return lookup.unreflect(m);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
 	private static class RecordingDirectoryStream implements DirectoryStream<Path> {
 		protected class RecordingDirectoryIterator implements Iterator<Path> {
 			private final Iterator<Path> it;
@@ -368,5 +403,16 @@ public class NioFileSystemProviderSakerProxy {
 			LinkOption... options) throws IOException {
 		addReadWritten(fsp, path);
 		fsp.setAttribute(path, attribute, value, options);
+	}
+
+	public static boolean exists(FileSystemProvider fsp, Path path, LinkOption... options) throws Throwable {
+		addRead(fsp, path);
+		return (boolean) exists.invoke(fsp, path, options);
+	}
+
+	public static <A extends BasicFileAttributes> A readAttributesIfExists(FileSystemProvider fsp, Path path,
+			Class<A> type, LinkOption... options) throws Throwable {
+		addRead(fsp, path);
+		return (A) readAttributesIfExists.invoke(fsp, path, type, options);
 	}
 }
