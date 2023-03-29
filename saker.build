@@ -463,6 +463,15 @@ testjava16(){
 testjava17(){
 	test(jreversion: 17)
 }
+testjava18(){
+	test(jreversion: 18)
+}
+testjava19(){
+	test(jreversion: 19)
+}
+testjava20(){
+	test(jreversion: 20)
+}
 
 _testapicompile(
 	in enabled = false,
