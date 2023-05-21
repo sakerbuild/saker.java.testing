@@ -1,6 +1,6 @@
 # saker.java.testing
 
-![Build status](https://img.shields.io/azure-devops/build/sakerbuild/5e05673c-f79b-4b0e-9866-bafebbde4851/16/master) [![Latest version](https://mirror.nest.saker.build/badges/saker.java.testing/version.svg)](https://nest.saker.build/package/saker.java.testing "saker.java.testing | saker.nest")
+[![Build status](https://img.shields.io/azure-devops/build/sakerbuild/5e05673c-f79b-4b0e-9866-bafebbde4851/16/master)](https://dev.azure.com/sakerbuild/saker.java.testing/_build) [![Latest version](https://mirror.nest.saker.build/badges/saker.java.testing/version.svg)](https://nest.saker.build/package/saker.java.testing "saker.java.testing | saker.nest")
 
 The project implements incremental Java testing support for the [saker.build system](https://saker.build). The implementation dynamically instruments the tested classes to record the dependencies. It can track the accessed classes and files on a test-case basis.
 
